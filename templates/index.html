@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Login</title>
+<link rel="icon" type="image/png" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXXVq-Ia5_5uoXlNcPzdZwioW3zfWE99P7aSaTDgKoFA&s=10">
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial;
+}
+
+body{
+background:#eef2ff;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+.container{
+width:900px;
+height:500px;
+display:flex;
+border-radius:20px;
+overflow:hidden;
+box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+.left{
+width:50%;
+background:linear-gradient(135deg,#4f46e5,#7c3aed);
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+}
+
+.left h1{
+font-size:45px;
+margin-bottom:10px;
+}
+
+.left p{
+font-size:18px;
+}
+
+.right{
+width:50%;
+background:white;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.form{
+width:80%;
+}
+
+.form h2{
+margin-bottom:30px;
+text-align:center;
+color:#333;
+}
+
+input{
+width:100%;
+padding:12px;
+margin-bottom:15px;
+border:1px solid #ccc;
+border-radius:8px;
+font-size:16px;
+}
+
+.captcha{
+display:flex;
+gap:10px;
+margin-bottom:20px;
+}
+
+.captcha span{
+background:#4f46e5;
+color:white;
+padding:12px 20px;
+border-radius:8px;
+font-weight:bold;
+}
+.blink{
+    animation:blink-animation 2s infinite;  
+}
+
+@keyframes blink-animation {
+    50%{opacity:0;}
+}
+
+button{
+width:100%;
+padding:14px;
+background:#4f46e5;
+color:white;
+border:none;
+border-radius:8px;
+font-size:17px;
+cursor:pointer;
+transition:.3s;
+}
+
+button:hover{
+background:#372dc7;
+}
+input::placeholder{
+	text-align: center;
+	color:#4f46e5;
+
+}
+
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="left">
+<h1 style="font-size: 40px; text-align: center;">ACCIDENT HOTSPOT PREDICTION</h1>
+<p>Login to Continue</p>
+</div>
+
+<div class="right">
+
+<div class="form">
+
+<!-- <h2>Login</h2> -->
+<!-- <input type="text" id="username" placeholder="Username" style="border: 4px solid #4f46e5; "> -->
+
+<div class="captcha">
+<span id="question"></span>
+<input type="number" id="captcha" placeholder="Answer" style="border: 4px solid #4f46e5;">
+</div>
+
+
+<button onclick="login()">Login</button>
+
+<div class="modal-body blink"style="color:red; text-align: center; margin-top: 10px; " id="error"></div>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let a=Math.floor(Math.random()*10)+1;
+let b=Math.floor(Math.random()*10)+1;
+
+document.getElementById("question").innerHTML=a+" + "+b;
+
+function login(){
+
+// let user=document.getElementById("username").value;
+let cap=document.getElementById("captcha").value;
+
+// if(user==""){
+// document.getElementById("error").innerHTML = "Enter Username";
+// return;
+// }
+
+if(Number(cap)!=(a+b)){
+document.getElementById("error").innerHTML = "Wrong Captcha";
+return;
+}
+
+window.location = "/landing";
+
+}
+
+</script>
+
+</body>
+</html>

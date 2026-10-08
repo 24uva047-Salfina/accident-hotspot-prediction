@@ -1,0 +1,2432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Live GPS Risk Navigation</title>
+
+    <!-- Bootstrap -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <!-- Bootstrap Icons -->
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    >
+
+    <!-- Leaflet -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    >
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+        }
+
+        /* ================= SIDEBAR ================= */
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 230px;
+            height: 100vh;
+            background: white;
+            border-right: 1px solid #ddd;
+            z-index: 2000;
+            padding-top: 20px;
+        }
+
+        .logo {
+            font-size: 23px;
+            font-weight: bold;
+            padding: 15px 25px 25px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 25px;
+            text-decoration: none;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .menu-item:hover {
+            background: #f1f3f5;
+        }
+
+        .menu-item.active {
+            background: #e9f2ff;
+            color: #0d6efd;
+            font-weight: bold;
+        }
+
+        /* ================= MAIN ================= */
+
+        .main {
+            margin-left: 230px;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .top-title {
+            margin-bottom: 15px;
+        }
+
+        .top-title h2 {
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+
+        .top-title p {
+            color: #777;
+            margin: 0;
+        }
+
+        /* ================= CONTROL PANEL ================= */
+
+        .control-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .location-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto;
+            gap: 10px;
+        }
+
+        .location-row input {
+            height: 45px;
+        }
+
+        .btn-custom {
+            height: 45px;
+            white-space: nowrap;
+        }
+
+        /* ================= MAP ================= */
+
+        #map {
+            width: 100%;
+            height: 650px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+
+        /* ================= GPS STATUS ================= */
+
+        .gps-status {
+            margin-top: 12px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .gps-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gps-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #777;
+        }
+
+        .gps-dot.active {
+            background: #198754;
+            box-shadow: 0 0 0 5px rgba(25,135,84,0.15);
+        }
+
+        .gps-dot.warning {
+            background: #dc3545;
+            box-shadow: 0 0 0 5px rgba(220,53,69,0.15);
+        }
+
+        /* ================= INFO CARD ================= */
+
+        .info-card {
+            position: fixed;
+            right: 25px;
+            top: 90px;
+            width: 350px;
+            background: white;
+            z-index: 2500;
+            border-radius: 14px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+            display: none;
+            overflow: hidden;
+        }
+
+        .info-header {
+            padding: 15px 18px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .info-body {
+            padding: 18px;
+        }
+
+        .risk-high {
+            background: #dc3545;
+            color: white;
+        }
+
+        .risk-medium {
+            background: #fd7e14;
+            color: white;
+        }
+
+        .risk-low {
+            background: #198754;
+            color: white;
+        }
+
+        .recommendation {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            color: #333;
+        }
+
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        /* ================= ROUTE RESULT ================= */
+
+        .route-result {
+            margin-top: 12px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .route-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .risk-bar {
+            height: 10px;
+            width: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            background: #eee;
+            margin-top: 10px;
+        }
+
+        .risk-low-bar {
+            background: #198754;
+        }
+
+        .risk-medium-bar {
+            background: #fd7e14;
+        }
+
+        .risk-high-bar {
+            background: #dc3545;
+        }
+
+        /* ================= RESPONSIVE ================= */
+
+        @media(max-width: 900px) {
+
+            .sidebar {
+                width: 70px;
+            }
+
+            .logo {
+                font-size: 0;
+                padding: 15px;
+            }
+
+            .logo::after {
+                content: "AI";
+                font-size: 20px;
+            }
+
+            .menu-item span {
+                display: none;
+            }
+
+            .menu-item {
+                justify-content: center;
+                padding: 15px;
+            }
+
+            .main {
+                margin-left: 70px;
+            }
+
+            .location-row {
+                grid-template-columns: 1fr;
+            }
+
+            #map {
+                height: 600px;
+            }
+
+            .info-card {
+                left: 80px;
+                right: 15px;
+                width: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ========================================================= -->
+<!-- SIDEBAR -->
+<!-- ========================================================= -->
+
+<div class="sidebar">
+
+    <div class="logo">
+        Accident AI
+    </div>
+
+    <a href="/" class="menu-item">
+        <i class="bi bi-house"></i>
+        <span>Home</span>
+    </a>
+
+    <a href="/map" class="menu-item active">
+        <i class="bi bi-map"></i>
+        <span>Map View</span>
+    </a>
+
+    <a href="/dashboard" class="menu-item">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+    </a>
+
+    <a href="/prediction" class="menu-item">
+        <i class="bi bi-graph-up-arrow"></i>
+        <span>Prediction</span>
+    </a>
+
+    <a href="/" class="menu-item">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Logout</span>
+    </a>
+
+</div>
+
+
+<!-- ========================================================= -->
+<!-- MAIN -->
+<!-- ========================================================= -->
+
+<div class="main">
+
+    <div class="top-title">
+
+        <h2>
+            <i class="bi bi-geo-alt"></i>
+            Live Accident Risk Navigation
+        </h2>
+
+        <p>
+            Enter your start and destination to analyse route risk and track your journey.
+        </p>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- LOCATION INPUT -->
+    <!-- ===================================================== -->
+
+    <div class="control-panel">
+
+        <div class="location-row">
+
+            <input
+                type="text"
+                id="startLocation"
+                class="form-control"
+                placeholder="Start location"
+            >
+
+            <input
+                type="text"
+                id="destinationLocation"
+                class="form-control"
+                placeholder="Destination"
+            >
+
+            <button
+                class="btn btn-primary btn-custom"
+                onclick="findRoute()"
+            >
+                <i class="bi bi-sign-turn-right"></i>
+                Find Route
+            </button>
+
+            <button
+                class="btn btn-success btn-custom"
+                onclick="startGPS()"
+            >
+                <i class="bi bi-crosshair"></i>
+                Start GPS
+            </button>
+
+        </div>
+
+        <div class="mt-2">
+
+            <button
+                class="btn btn-outline-secondary btn-sm"
+                onclick="useCurrentLocation()"
+            >
+                <i class="bi bi-geo"></i>
+                Use My Current Location
+            </button>
+
+            <button
+                class="btn btn-outline-danger btn-sm"
+                onclick="stopGPS()"
+            >
+                <i class="bi bi-stop-circle"></i>
+                Stop GPS
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- MAP -->
+    <!-- ===================================================== -->
+
+    <div id="map"></div>
+
+
+    <!-- ===================================================== -->
+    <!-- GPS STATUS -->
+    <!-- ===================================================== -->
+
+    <div class="gps-status">
+
+        <div class="gps-left">
+
+            <div id="gpsDot" class="gps-dot"></div>
+
+            <div>
+
+                <strong id="gpsStatus">
+                    GPS not started
+                </strong>
+
+                <div
+                    id="gpsCoordinates"
+                    style="font-size:13px;color:#777;"
+                >
+                    Waiting for GPS...
+                </div>
+
+            </div>
+
+        </div>
+
+        <div>
+
+            <span
+                id="currentRiskBadge"
+                class="badge bg-secondary"
+            >
+                Risk: --
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- ROUTE RESULT -->
+    <!-- ===================================================== -->
+
+    <div
+        id="routeResult"
+        class="route-result"
+        style="display:none;"
+    ></div>
+
+
+</div>
+
+
+<!-- ========================================================= -->
+<!-- LIVE RISK POPUP -->
+<!-- ========================================================= -->
+
+<div
+    id="riskInfoCard"
+    class="info-card"
+>
+
+    <div
+        id="riskHeader"
+        class="info-header"
+    >
+
+        <span
+            class="close-btn"
+            onclick="closeRiskCard()"
+        >
+            ×
+        </span>
+
+        <span id="riskTitle">
+            Risk Information
+        </span>
+
+    </div>
+
+    <div class="info-body">
+
+        <div id="riskMessage"></div>
+
+        <div
+            id="riskLocation"
+            class="mt-2"
+        ></div>
+
+        <div
+            id="riskWeather"
+            class="mt-2"
+        ></div>
+
+        <div
+            id="riskRecommendation"
+            class="recommendation"
+        ></div>
+
+    </div>
+
+</div>
+
+
+<!-- ========================================================= -->
+<!-- LEAFLET -->
+<!-- ========================================================= -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+<script>
+
+    /* =========================================================
+       MAP INITIALIZATION
+    ========================================================= */
+
+    const map = L.map("map").setView(
+        [11.1271, 78.6569],
+        7
+    );
+
+    L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }
+    ).addTo(map);
+
+
+    /* =========================================================
+       GLOBAL VARIABLES
+    ========================================================= */
+
+    let gpsMarker = null;
+    let gpsAccuracyCircle = null;
+
+    let gpsWatchId = null;
+
+    let startMarker = null;
+    let destinationMarker = null;
+
+    let routeLayers = [];
+
+    let currentGPSLocation = null;
+
+    let lastRiskDistrict = null;
+
+    let routeCoordinates = [];
+
+    let routeActive = false;
+
+
+    /* =========================================================
+       RISK VALUES
+    ========================================================= */
+
+    const riskValue = {
+
+        "Low": 1,
+        "Medium": 2,
+        "High": 3
+
+    };
+
+
+    /* =========================================================
+       RISK COLORS
+    ========================================================= */
+
+    function getRiskColor(risk) {
+
+        if (risk === "High") {
+            return "#dc3545";
+        }
+
+        if (risk === "Medium") {
+            return "#fd7e14";
+        }
+
+        return "#198754";
+    }
+
+
+    /* =========================================================
+       NESTED LOCATION NAME
+    ========================================================= */
+
+    function getAreaName(address) {
+
+        return (
+            address.neighbourhood ||
+            address.suburb ||
+            address.village ||
+            address.town ||
+            address.city_district ||
+            address.city ||
+            address.municipality ||
+            "Selected Location"
+        );
+
+    }
+
+
+    /* =========================================================
+       GET DISTRICT
+    ========================================================= */
+
+    function getDistrictName(address) {
+
+        return (
+            address.state_district ||
+            address.county ||
+            address.district ||
+            address.state ||
+            "Tamil Nadu"
+        );
+
+    }
+
+
+    /* =========================================================
+       HAVERSINE DISTANCE
+    ========================================================= */
+
+    function calculateDistance(
+        lat1,
+        lon1,
+        lat2,
+        lon2
+    ) {
+
+        const R = 6371;
+
+        const dLat =
+            (lat2 - lat1) *
+            Math.PI / 180;
+
+        const dLon =
+            (lon2 - lon1) *
+            Math.PI / 180;
+
+        const a =
+            Math.sin(dLat / 2) *
+            Math.sin(dLat / 2) +
+
+            Math.cos(lat1 * Math.PI / 180) *
+            Math.cos(lat2 * Math.PI / 180) *
+
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+
+        const c =
+            2 *
+            Math.atan2(
+                Math.sqrt(a),
+                Math.sqrt(1 - a)
+            );
+
+        return R * c;
+
+    }
+
+
+    /* =========================================================
+       CHECK TN
+    ========================================================= */
+
+    function isTamilNadu(
+        lat,
+        lon
+    ) {
+
+        return (
+            lat >= 8 &&
+            lat <= 14 &&
+            lon >= 76 &&
+            lon <= 81
+        );
+
+    }
+
+
+    /* =========================================================
+       NOMINATIM SEARCH
+    ========================================================= */
+
+    async function geocodeLocation(
+        location
+    ) {
+
+        const url =
+            "https://nominatim.openstreetmap.org/search?" +
+
+            new URLSearchParams({
+
+                q: location + ", Tamil Nadu, India",
+
+                format: "json",
+
+                limit: "1",
+
+                addressdetails: "1"
+
+            });
+
+        const response =
+            await fetch(url, {
+
+                headers: {
+
+                    "Accept":
+                        "application/json"
+
+                }
+
+            });
+
+        const data =
+            await response.json();
+
+        if (!data.length) {
+
+            throw new Error(
+                "Location not found"
+            );
+
+        }
+
+        const result =
+            data[0];
+
+        return {
+
+            lat:
+                parseFloat(result.lat),
+
+            lon:
+                parseFloat(result.lon),
+
+            display:
+                result.display_name,
+
+            address:
+                result.address || {}
+
+        };
+
+    }
+
+
+    /* =========================================================
+       CURRENT LOCATION → START
+    ========================================================= */
+
+    function useCurrentLocation() {
+
+        if (!currentGPSLocation) {
+
+            alert(
+                "Please start GPS first."
+            );
+
+            startGPS();
+
+            return;
+
+        }
+
+        document.getElementById(
+            "startLocation"
+        ).value =
+            "My Current Location";
+
+        map.setView(
+            [
+                currentGPSLocation.lat,
+                currentGPSLocation.lon
+            ],
+            15
+        );
+
+    }
+
+
+    /* =========================================================
+       START GPS
+    ========================================================= */
+
+    function startGPS() {
+
+        if (!navigator.geolocation) {
+
+            alert(
+                "GPS is not supported by this browser."
+            );
+
+            return;
+
+        }
+
+        document.getElementById(
+            "gpsStatus"
+        ).innerText =
+            "Requesting GPS location...";
+
+        gpsWatchId =
+            navigator.geolocation.watchPosition(
+
+                handleGPSPosition,
+
+                handleGPSError,
+
+                {
+
+                    enableHighAccuracy: true,
+
+                    maximumAge: 5000,
+
+                    timeout: 15000
+
+                }
+
+            );
+
+    }
+
+
+    /* =========================================================
+       GPS POSITION
+    ========================================================= */
+
+    async function handleGPSPosition(
+        position
+    ) {
+
+        const lat =
+            position.coords.latitude;
+
+        const lon =
+            position.coords.longitude;
+
+        const accuracy =
+            position.coords.accuracy;
+
+
+        if (!isTamilNadu(lat, lon)) {
+
+            document.getElementById(
+                "gpsStatus"
+            ).innerText =
+                "GPS location is outside Tamil Nadu";
+
+            return;
+
+        }
+
+
+        currentGPSLocation = {
+
+            lat: lat,
+
+            lon: lon
+
+        };
+
+
+        /* ================================================
+           UPDATE GPS STATUS
+        ================================================= */
+
+        document.getElementById(
+            "gpsStatus"
+        ).innerText =
+            "GPS Tracking Active";
+
+        document.getElementById(
+            "gpsCoordinates"
+        ).innerText =
+
+            lat.toFixed(6) +
+            ", " +
+            lon.toFixed(6) +
+
+            " | Accuracy: " +
+
+            Math.round(accuracy) +
+            " m";
+
+
+        document.getElementById(
+            "gpsDot"
+        ).classList.add("active");
+
+
+        /* ================================================
+           CREATE GPS MARKER
+        ================================================= */
+
+        if (!gpsMarker) {
+
+            gpsMarker =
+                L.marker(
+                    [lat, lon],
+                    {
+
+                        title:
+                            "Your Current Location"
+
+                    }
+                ).addTo(map);
+
+            gpsMarker.bindPopup(
+                "📍 You are here"
+            );
+
+        }
+        else {
+
+            gpsMarker.setLatLng(
+                [lat, lon]
+            );
+
+        }
+
+
+        /* ================================================
+           ACCURACY CIRCLE
+        ================================================= */
+
+        if (!gpsAccuracyCircle) {
+
+            gpsAccuracyCircle =
+                L.circle(
+                    [lat, lon],
+                    {
+
+                        radius: accuracy,
+
+                        color: "#0d6efd",
+
+                        fillOpacity: 0.08
+
+                    }
+                ).addTo(map);
+
+        }
+        else {
+
+            gpsAccuracyCircle.setLatLng(
+                [lat, lon]
+            );
+
+            gpsAccuracyCircle.setRadius(
+                accuracy
+            );
+
+        }
+
+
+        /* ================================================
+           CHECK LIVE RISK
+        ================================================= */
+
+        await checkLiveRisk(
+            lat,
+            lon
+        );
+
+
+        /* ================================================
+           KEEP MAP ON USER
+        ================================================= */
+
+        if (routeActive) {
+
+            map.panTo(
+                [lat, lon],
+                {
+                    animate: true
+                }
+            );
+
+        }
+
+    }
+
+
+    /* =========================================================
+       GPS ERROR
+    ========================================================= */
+
+    function handleGPSError(
+        error
+    ) {
+
+        let message =
+            "Unable to get GPS location.";
+
+        if (error.code === 1) {
+
+            message =
+                "Location permission denied. Please allow GPS permission.";
+
+        }
+
+        if (error.code === 2) {
+
+            message =
+                "GPS location unavailable.";
+
+        }
+
+        if (error.code === 3) {
+
+            message =
+                "GPS request timed out.";
+
+        }
+
+        document.getElementById(
+            "gpsStatus"
+        ).innerText =
+            message;
+
+        document.getElementById(
+            "gpsDot"
+        ).classList.remove("active");
+
+    }
+
+
+    /* =========================================================
+       STOP GPS
+    ========================================================= */
+
+    function stopGPS() {
+
+        if (gpsWatchId !== null) {
+
+            navigator.geolocation.clearWatch(
+                gpsWatchId
+            );
+
+            gpsWatchId = null;
+
+        }
+
+        document.getElementById(
+            "gpsStatus"
+        ).innerText =
+            "GPS Tracking Stopped";
+
+        document.getElementById(
+            "gpsDot"
+        ).classList.remove(
+            "active"
+        );
+
+    }
+
+
+    /* =========================================================
+       LIVE RISK API
+    ========================================================= */
+
+    async function checkLiveRisk(
+        lat,
+        lon
+    ) {
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/predict",
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body:
+                            JSON.stringify({
+
+                                latitude: lat,
+
+                                longitude: lon
+
+                            })
+
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                return;
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                data.status !== "success"
+            ) {
+
+                return;
+
+            }
+
+
+            const risk =
+                data.risk_level;
+
+            const district =
+                data.district;
+
+
+            /* ============================================
+               UPDATE BADGE
+            ============================================ */
+
+            const badge =
+                document.getElementById(
+                    "currentRiskBadge"
+                );
+
+            badge.innerText =
+                "Risk: " + risk;
+
+            badge.className =
+                "badge";
+
+
+            if (risk === "High") {
+
+                badge.classList.add(
+                    "bg-danger"
+                );
+
+            }
+            else if (
+                risk === "Medium"
+            ) {
+
+                badge.classList.add(
+                    "bg-warning",
+                    "text-dark"
+                );
+
+            }
+            else {
+
+                badge.classList.add(
+                    "bg-success"
+                );
+
+            }
+
+
+            /* ============================================
+               SHOW POPUP ONLY WHEN RISK CHANGES
+            ============================================ */
+
+            if (
+                district !== lastRiskDistrict
+            ) {
+
+                lastRiskDistrict =
+                    district;
+
+                showRiskRecommendation(
+                    data
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.log(
+                "Live risk error:",
+                error
+            );
+
+        }
+
+    }
+
+
+    /* =========================================================
+       SHOW RISK RECOMMENDATION
+    ========================================================= */
+
+    function showRiskRecommendation(
+        data
+    ) {
+
+        const risk =
+            data.risk_level;
+
+        const district =
+            data.district;
+
+        const confidence =
+            data.confidence;
+
+        const weather =
+            data.weather || {};
+
+
+        const card =
+            document.getElementById(
+                "riskInfoCard"
+            );
+
+        const header =
+            document.getElementById(
+                "riskHeader"
+            );
+
+
+        header.className =
+            "info-header";
+
+
+        if (risk === "High") {
+
+            header.classList.add(
+                "risk-high"
+            );
+
+        }
+        else if (
+            risk === "Medium"
+        ) {
+
+            header.classList.add(
+                "risk-medium"
+            );
+
+        }
+        else {
+
+            header.classList.add(
+                "risk-low"
+            );
+
+        }
+
+
+        document.getElementById(
+            "riskTitle"
+        ).innerText =
+
+            risk === "High"
+
+                ? "⚠️ HIGH RISK AHEAD"
+
+                : risk === "Medium"
+
+                ? "⚠️ MEDIUM RISK AREA"
+
+                : "🟢 LOW RISK AREA";
+
+
+        document.getElementById(
+            "riskMessage"
+        ).innerHTML =
+
+            "<strong>Current Risk:</strong> " +
+            risk;
+
+
+        document.getElementById(
+            "riskLocation"
+        ).innerHTML =
+
+            "<strong>District:</strong> " +
+            district;
+
+
+        document.getElementById(
+            "riskWeather"
+        ).innerHTML =
+
+            "<strong>Weather:</strong> " +
+
+            (
+                weather.temperature !== undefined
+
+                    ? weather.temperature +
+                      " °C"
+
+                    : "Available"
+            );
+
+
+        let recommendation = "";
+
+
+        if (risk === "High") {
+
+            recommendation =
+
+                "⚠️ <strong>High accident risk detected.</strong><br>" +
+
+                "Drive carefully and reduce your speed." +
+
+                "<br><br>" +
+
+                "🛡️ If an alternative lower-risk route is available, consider using it.";
+
+        }
+        else if (
+            risk === "Medium"
+        ) {
+
+            recommendation =
+
+                "⚠️ <strong>Medium accident risk.</strong><br>" +
+
+                "Please drive carefully and maintain a safe distance.";
+
+        }
+        else {
+
+            recommendation =
+
+                "🟢 <strong>Low accident risk.</strong><br>" +
+
+                "You are currently travelling through a lower-risk area.";
+
+        }
+
+
+        if (confidence !== undefined) {
+
+            recommendation +=
+
+                "<br><br>" +
+
+                "<small>Model confidence: " +
+
+                Number(confidence).toFixed(2) +
+
+                "%</small>";
+
+        }
+
+
+        document.getElementById(
+            "riskRecommendation"
+        ).innerHTML =
+            recommendation;
+
+
+        card.style.display =
+            "block";
+
+
+        /* ============================================
+           AUTO CLOSE AFTER 8 SECONDS
+        ============================================ */
+
+        setTimeout(
+            function() {
+
+                card.style.display =
+                    "none";
+
+            },
+            8000
+        );
+
+    }
+
+
+    /* =========================================================
+       CLOSE RISK CARD
+    ========================================================= */
+
+    function closeRiskCard() {
+
+        document.getElementById(
+            "riskInfoCard"
+        ).style.display =
+            "none";
+
+    }
+
+
+    /* =========================================================
+       FIND ROUTE
+    ========================================================= */
+
+    async function findRoute() {
+
+        const startText =
+            document.getElementById(
+                "startLocation"
+            ).value.trim();
+
+        const destinationText =
+            document.getElementById(
+                "destinationLocation"
+            ).value.trim();
+
+
+        if (!startText ||
+            !destinationText) {
+
+            alert(
+                "Please enter both start and destination."
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            const start =
+                startText ===
+                "My Current Location"
+
+                    ? currentGPSLocation
+
+                    : await geocodeLocation(
+                        startText
+                    );
+
+
+            if (!start) {
+
+                alert(
+                    "Please start GPS first to use current location."
+                );
+
+                return;
+
+            }
+
+
+            const destination =
+                await geocodeLocation(
+                    destinationText
+                );
+
+
+            if (
+                !isTamilNadu(
+                    start.lat,
+                    start.lon
+                )
+            ) {
+
+                alert(
+                    "Start location must be inside Tamil Nadu."
+                );
+
+                return;
+
+            }
+
+
+            if (
+                !isTamilNadu(
+                    destination.lat,
+                    destination.lon
+                )
+            ) {
+
+                alert(
+                    "Destination must be inside Tamil Nadu."
+                );
+
+                return;
+
+            }
+
+
+            drawStartMarker(
+                start.lat,
+                start.lon
+            );
+
+
+            drawDestinationMarker(
+                destination.lat,
+                destination.lon
+            );
+
+
+            await getOSRMRoutes(
+                start,
+                destination
+            );
+
+
+        }
+        catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Unable to find route. Please check the location names."
+            );
+
+        }
+
+    }
+
+
+    /* =========================================================
+       START MARKER
+    ========================================================= */
+
+    function drawStartMarker(
+        lat,
+        lon
+    ) {
+
+        if (startMarker) {
+
+            map.removeLayer(
+                startMarker
+            );
+
+        }
+
+
+        startMarker =
+            L.marker(
+                [lat, lon]
+            ).addTo(map);
+
+
+        startMarker.bindPopup(
+            "🚗 Start Location"
+        );
+
+    }
+
+
+    /* =========================================================
+       DESTINATION MARKER
+    ========================================================= */
+
+    function drawDestinationMarker(
+        lat,
+        lon
+    ) {
+
+        if (destinationMarker) {
+
+            map.removeLayer(
+                destinationMarker
+            );
+
+        }
+
+
+        destinationMarker =
+            L.marker(
+                [lat, lon]
+            ).addTo(map);
+
+
+        destinationMarker.bindPopup(
+            "🏁 Destination"
+        );
+
+    }
+
+
+    /* =========================================================
+       OSRM ROUTE
+    ========================================================= */
+
+    async function getOSRMRoutes(
+        start,
+        destination
+    ) {
+
+        const url =
+
+            "https://router.project-osrm.org/route/v1/driving/" +
+
+            start.lon +
+            "," +
+            start.lat +
+
+            ";" +
+
+            destination.lon +
+            "," +
+            destination.lat +
+
+            "?alternatives=true&overview=full&geometries=geojson";
+
+
+        const response =
+            await fetch(url);
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            data.code !== "Ok"
+        ) {
+
+            throw new Error(
+                "Route not found"
+            );
+
+        }
+
+
+        clearRouteLayers();
+
+
+        const routes =
+            data.routes;
+
+
+        let analysedRoutes = [];
+
+
+        for (
+            let i = 0;
+            i < routes.length;
+            i++
+        ) {
+
+            const route =
+                routes[i];
+
+
+            const coordinates =
+                route.geometry.coordinates.map(
+                    point => [
+                        point[1],
+                        point[0]
+                    ]
+                );
+
+
+            const analysis =
+                await analyzeRoute(
+                    coordinates
+                );
+
+
+            analysedRoutes.push({
+
+                route: route,
+
+                coordinates:
+                    coordinates,
+
+                analysis:
+                    analysis
+
+            });
+
+        }
+
+
+        /* ============================================
+           SORT BY OVERALL RISK
+        ============================================ */
+
+        analysedRoutes.sort(
+            function(a, b) {
+
+                const riskDifference =
+
+                    riskValue[
+                        a.analysis.overall
+                    ] -
+
+                    riskValue[
+                        b.analysis.overall
+                    ];
+
+
+                if (
+                    riskDifference !== 0
+                ) {
+
+                    return riskDifference;
+
+                }
+
+
+                return (
+
+                    a.route.distance -
+
+                    b.route.distance
+
+                );
+
+            }
+        );
+
+
+        routeActive = true;
+
+
+        drawAllRoutes(
+            analysedRoutes
+        );
+
+
+        showRouteResult(
+            analysedRoutes
+        );
+
+    }
+
+
+    /* =========================================================
+       ANALYZE ROUTE
+    ========================================================= */
+
+    async function analyzeRoute(
+        coordinates
+    ) {
+
+        let lowKm = 0;
+
+        let mediumKm = 0;
+
+        let highKm = 0;
+
+        let weightedRisk = 0;
+
+        let totalKm = 0;
+
+
+        for (
+            let i = 0;
+            i < coordinates.length - 1;
+            i++
+        ) {
+
+            const p1 =
+                coordinates[i];
+
+            const p2 =
+                coordinates[i + 1];
+
+
+            const distance =
+                calculateDistance(
+                    p1[0],
+                    p1[1],
+                    p2[0],
+                    p2[1]
+                );
+
+
+            if (
+                distance <= 0
+            ) {
+
+                continue;
+
+            }
+
+
+            const midLat =
+                (p1[0] + p2[0]) / 2;
+
+            const midLon =
+                (p1[1] + p2[1]) / 2;
+
+
+            const riskData =
+                await getRiskWithoutPopup(
+                    midLat,
+                    midLon
+                );
+
+
+            const risk =
+                riskData.risk_level;
+
+
+            totalKm +=
+                distance;
+
+
+            weightedRisk +=
+                distance *
+                riskValue[risk];
+
+
+            if (
+                risk === "High"
+            ) {
+
+                highKm +=
+                    distance;
+
+            }
+            else if (
+                risk === "Medium"
+            ) {
+
+                mediumKm +=
+                    distance;
+
+            }
+            else {
+
+                lowKm +=
+                    distance;
+
+            }
+
+        }
+
+
+        const score =
+            totalKm > 0
+
+                ? weightedRisk / totalKm
+
+                : 1;
+
+
+        let overall =
+            "Low";
+
+
+        if (
+            score >= 2.5
+        ) {
+
+            overall =
+                "High";
+
+        }
+        else if (
+            score >= 1.7
+        ) {
+
+            overall =
+                "Medium";
+
+        }
+
+
+        return {
+
+            lowKm:
+                lowKm,
+
+            mediumKm:
+                mediumKm,
+
+            highKm:
+                highKm,
+
+            totalKm:
+                totalKm,
+
+            riskScore:
+                score,
+
+            overall:
+                overall
+
+        };
+
+    }
+
+
+    /* =========================================================
+       GET RISK WITHOUT POPUP
+    ========================================================= */
+
+    async function getRiskWithoutPopup(
+        lat,
+        lon
+    ) {
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/predict",
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body:
+                            JSON.stringify({
+
+                                latitude: lat,
+
+                                longitude: lon
+
+                            })
+
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                data.status === "success"
+            ) {
+
+                return data;
+
+            }
+
+        }
+        catch (error) {
+
+            console.log(
+                "Route risk error:",
+                error
+            );
+
+        }
+
+
+        return {
+
+            risk_level:
+                "Low"
+
+        };
+
+    }
+
+
+    /* =========================================================
+       DRAW ALL ROUTES
+    ========================================================= */
+
+    function drawAllRoutes(
+        routes
+    ) {
+
+        routes.forEach(
+            function(item, index) {
+
+                const color =
+                    getRiskColor(
+                        item.analysis.overall
+                    );
+
+
+                const line =
+                    L.polyline(
+                        item.coordinates,
+                        {
+
+                            color:
+                                color,
+
+                            weight:
+                                index === 0
+                                    ? 8
+                                    : 5,
+
+                            opacity:
+                                index === 0
+                                    ? 0.9
+                                    : 0.45
+
+                        }
+                    ).addTo(map);
+
+
+                line.bindPopup(
+
+                    "<strong>Route " +
+                    (index + 1) +
+                    "</strong><br>" +
+
+                    "Risk: " +
+                    item.analysis.overall +
+                    "<br>" +
+
+                    "Distance: " +
+                    item.analysis.totalKm.toFixed(1) +
+                    " km"
+
+                );
+
+
+                routeLayers.push(
+                    line
+                );
+
+            }
+        );
+
+
+        if (
+            routes.length
+        ) {
+
+            const bounds =
+                L.latLngBounds(
+                    routes[0].coordinates
+                );
+
+            map.fitBounds(
+                bounds,
+                {
+                    padding: [40, 40]
+                }
+            );
+
+        }
+
+    }
+
+
+    /* =========================================================
+       CLEAR ROUTES
+    ========================================================= */
+
+    function clearRouteLayers() {
+
+        routeLayers.forEach(
+            function(layer) {
+
+                map.removeLayer(
+                    layer
+                );
+
+            }
+        );
+
+        routeLayers = [];
+
+    }
+
+
+    /* =========================================================
+       ROUTE RESULT CARD
+    ========================================================= */
+
+    function showRouteResult(
+        routes
+    ) {
+
+        const container =
+            document.getElementById(
+                "routeResult"
+            );
+
+
+        container.style.display =
+            "block";
+
+
+        if (!routes.length) {
+
+            container.innerHTML =
+                "<strong>No route available.</strong>";
+
+            return;
+
+        }
+
+
+        const best =
+            routes[0];
+
+
+        const allSameRisk =
+            routes.every(
+                item =>
+                    item.analysis.overall ===
+                    best.analysis.overall
+            );
+
+
+        let recommendation = "";
+
+
+        if (
+            routes.length === 1
+        ) {
+
+            recommendation =
+
+                "⚠️ No alternative route available.";
+
+        }
+        else if (
+            allSameRisk
+        ) {
+
+            recommendation =
+
+                "⚠️ No safer route available. " +
+
+                "All available routes have the same overall risk. " +
+
+                "The shorter route is preferred.";
+
+        }
+        else {
+
+            recommendation =
+
+                "🛡️ Lower-risk route recommended.";
+
+        }
+
+
+        let html =
+
+            "<div class='route-title'>" +
+
+            "🛡️ Route Recommendation" +
+
+            "</div>" +
+
+            "<div class='mb-3'>" +
+
+            recommendation +
+
+            "</div>";
+
+
+        routes.forEach(
+            function(item, index) {
+
+                const analysis =
+                    item.analysis;
+
+
+                const total =
+                    analysis.totalKm;
+
+
+                const lowPercent =
+                    total > 0
+                        ? analysis.lowKm / total * 100
+                        : 0;
+
+
+                const mediumPercent =
+                    total > 0
+                        ? analysis.mediumKm / total * 100
+                        : 0;
+
+
+                const highPercent =
+                    total > 0
+                        ? analysis.highKm / total * 100
+                        : 0;
+
+
+                html +=
+
+                    "<div style='border-top:1px solid #ddd;padding-top:12px;margin-top:12px;'>" +
+
+                    "<strong>Route " +
+                    (index + 1) +
+                    "</strong>" +
+
+                    " — " +
+
+                    "<span style='color:" +
+                    getRiskColor(
+                        analysis.overall
+                    ) +
+                    ";font-weight:bold'>" +
+
+                    analysis.overall +
+
+                    "</span>" +
+
+                    "<br>" +
+
+                    "Distance: " +
+                    analysis.totalKm.toFixed(1) +
+                    " km" +
+
+                    "<br>" +
+
+                    "Risk Score: " +
+                    analysis.riskScore.toFixed(2) +
+
+                    "<br>" +
+
+                    "🟢 Low: " +
+                    analysis.lowKm.toFixed(1) +
+                    " km" +
+
+                    " | " +
+
+                    "🟠 Medium: " +
+                    analysis.mediumKm.toFixed(1) +
+                    " km" +
+
+                    " | " +
+
+                    "🔴 High: " +
+                    analysis.highKm.toFixed(1) +
+                    " km" +
+
+                    "<div class='risk-bar'>" +
+
+                    "<div class='risk-low-bar' style='width:" +
+                    lowPercent +
+                    "%'></div>" +
+
+                    "<div class='risk-medium-bar' style='width:" +
+                    mediumPercent +
+                    "%'></div>" +
+
+                    "<div class='risk-high-bar' style='width:" +
+                    highPercent +
+                    "%'></div>" +
+
+                    "</div>" +
+
+                    "</div>";
+
+            }
+        );
+
+
+        html +=
+
+            "<div class='mt-3' style='font-size:12px;color:#777;'>" +
+
+            "Route risk is currently calculated using district-level accident data." +
+
+            "</div>";
+
+
+        container.innerHTML =
+            html;
+
+    }
+
+
+    /* =========================================================
+       MAP CLICK
+       ========================================================= */
+
+    map.on(
+        "click",
+        async function(e) {
+
+            const lat =
+                e.latlng.lat;
+
+            const lon =
+                e.latlng.lng;
+
+
+            if (
+                !isTamilNadu(
+                    lat,
+                    lon
+                )
+            ) {
+
+                alert(
+                    "Please select a location inside Tamil Nadu."
+                );
+
+                return;
+
+            }
+
+
+            try {
+
+                const url =
+
+                    "https://nominatim.openstreetmap.org/reverse?" +
+
+                    new URLSearchParams({
+
+                        lat: lat,
+
+                        lon: lon,
+
+                        format: "json",
+
+                        zoom: 18,
+
+                        addressdetails: 1
+
+                    });
+
+
+                const response =
+                    await fetch(
+                        url
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                const area =
+                    getAreaName(
+                        data.address || {}
+                    );
+
+
+                const district =
+                    getDistrictName(
+                        data.address || {}
+                    );
+
+
+                L.popup()
+                    .setLatLng(
+                        e.latlng
+                    )
+                    .setContent(
+
+                        "<strong>Location:</strong> " +
+                        area +
+
+                        "<br>" +
+
+                        "<strong>District:</strong> " +
+                        district +
+
+                        "<br>" +
+
+                        "<strong>Latitude:</strong> " +
+                        lat.toFixed(6) +
+
+                        "<br>" +
+
+                        "<strong>Longitude:</strong> " +
+                        lon.toFixed(6)
+
+                    )
+                    .openOn(map);
+
+            }
+            catch (error) {
+
+                console.log(error);
+
+            }
+
+        }
+    );
+
+
+</script>
+
+</body>
+</html>

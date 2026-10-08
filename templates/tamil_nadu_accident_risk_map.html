@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_cbfd13ead332d82d3cfe0293833f7ff5 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_cbfd13ead332d82d3cfe0293833f7ff5" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_cbfd13ead332d82d3cfe0293833f7ff5 = L.map(
+                "map_cbfd13ead332d82d3cfe0293833f7ff5",
+                {
+                    center: [11.1271, 78.6569],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 7,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_2b747cbe504548a3161b37ed27982bfd = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_2b747cbe504548a3161b37ed27982bfd.addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+            var circle_marker_636b932b4389f3e8d3320761f2ab912f = L.circleMarker(
+                [11.076036, 79.117455],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_6360930df84f328e27de6de9197b2355 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_7df4b3c9187f88f6e1f74c2b1f2720e2 = $(`<div id="html_7df4b3c9187f88f6e1f74c2b1f2720e2" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Ariyalur<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 146<br>     <b>2020 Nonfatal:</b> 325<br>     <b>2020 Total:</b> 471     </div>`)[0];
+                popup_6360930df84f328e27de6de9197b2355.setContent(html_7df4b3c9187f88f6e1f74c2b1f2720e2);
+            
+        
+
+        circle_marker_636b932b4389f3e8d3320761f2ab912f.bindPopup(popup_6360930df84f328e27de6de9197b2355)
+        ;
+
+        
+    
+    
+            var circle_marker_bfa1767a4ed58d1449b81ef5cb5cc8c0 = L.circleMarker(
+                [12.684089, 79.983637],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_4c84dbc09d43d2066c3b963d621d2366 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_be1a3210ef691baa50cecb2c40441720 = $(`<div id="html_be1a3210ef691baa50cecb2c40441720" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Chengalpattu<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 426<br>     <b>2020 Nonfatal:</b> 922<br>     <b>2020 Total:</b> 1348     </div>`)[0];
+                popup_4c84dbc09d43d2066c3b963d621d2366.setContent(html_be1a3210ef691baa50cecb2c40441720);
+            
+        
+
+        circle_marker_bfa1767a4ed58d1449b81ef5cb5cc8c0.bindPopup(popup_4c84dbc09d43d2066c3b963d621d2366)
+        ;
+
+        
+    
+    
+            var circle_marker_136ffbc0d8af6f4fe6028b9cd5afffd3 = L.circleMarker(
+                [11.001812, 76.962842],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_addb15778da603eb5daaa8d7612485e1 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_46d6686f59819d48b58bb9fd8a1f9a32 = $(`<div id="html_46d6686f59819d48b58bb9fd8a1f9a32" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Coimbatore<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 655<br>     <b>2020 Nonfatal:</b> 1303<br>     <b>2020 Total:</b> 1958     </div>`)[0];
+                popup_addb15778da603eb5daaa8d7612485e1.setContent(html_46d6686f59819d48b58bb9fd8a1f9a32);
+            
+        
+
+        circle_marker_136ffbc0d8af6f4fe6028b9cd5afffd3.bindPopup(popup_addb15778da603eb5daaa8d7612485e1)
+        ;
+
+        
+    
+    
+            var circle_marker_1a29d06c160dc95f0ff9798c16db0557 = L.circleMarker(
+                [11.742694, 79.750306],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_d53870239cb44b498f8e4ea230f59a9e = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_3fb313e5e97862bd78faf11d64a86bd8 = $(`<div id="html_3fb313e5e97862bd78faf11d64a86bd8" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Cuddalore<br>     <b>Risk Level:</b> High Risk<br>     <b>2020 Fatal:</b> 488<br>     <b>2020 Nonfatal:</b> 2145<br>     <b>2020 Total:</b> 2633     </div>`)[0];
+                popup_d53870239cb44b498f8e4ea230f59a9e.setContent(html_3fb313e5e97862bd78faf11d64a86bd8);
+            
+        
+
+        circle_marker_1a29d06c160dc95f0ff9798c16db0557.bindPopup(popup_d53870239cb44b498f8e4ea230f59a9e)
+        ;
+
+        
+    
+    
+            var circle_marker_55a95a63e6fe25eaa8c647406f326de0 = L.circleMarker(
+                [12.096805, 78.193043],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_d2780a6064741b5ffab648b9d80229b4 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_48d25078012ba739b7c68eed33f57961 = $(`<div id="html_48d25078012ba739b7c68eed33f57961" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Dharmapuri<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 337<br>     <b>2020 Nonfatal:</b> 819<br>     <b>2020 Total:</b> 1156     </div>`)[0];
+                popup_d2780a6064741b5ffab648b9d80229b4.setContent(html_48d25078012ba739b7c68eed33f57961);
+            
+        
+
+        circle_marker_55a95a63e6fe25eaa8c647406f326de0.bindPopup(popup_d2780a6064741b5ffab648b9d80229b4)
+        ;
+
+        
+    
+    
+            var circle_marker_c7bfd85ce37de4518fd536c07ca2669e = L.circleMarker(
+                [10.33033, 78.067398],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_93c3807a098af4cc136199a9f17c3e6e = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_f40dc123622476dfb533a3f79af4cb46 = $(`<div id="html_f40dc123622476dfb533a3f79af4cb46" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Dindigul<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 455<br>     <b>2020 Nonfatal:</b> 1068<br>     <b>2020 Total:</b> 1523     </div>`)[0];
+                popup_93c3807a098af4cc136199a9f17c3e6e.setContent(html_f40dc123622476dfb533a3f79af4cb46);
+            
+        
+
+        circle_marker_c7bfd85ce37de4518fd536c07ca2669e.bindPopup(popup_93c3807a098af4cc136199a9f17c3e6e)
+        ;
+
+        
+    
+    
+            var circle_marker_788942f0dbd5f31af1614916ddfad4ec = L.circleMarker(
+                [11.369204, 77.676627],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_d0f7092d58743d765ca317ae94883284 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_3bab1e1b6f46a5bffaeb74c240c94294 = $(`<div id="html_3bab1e1b6f46a5bffaeb74c240c94294" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Erode<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 537<br>     <b>2020 Nonfatal:</b> 1268<br>     <b>2020 Total:</b> 1805     </div>`)[0];
+                popup_d0f7092d58743d765ca317ae94883284.setContent(html_3bab1e1b6f46a5bffaeb74c240c94294);
+            
+        
+
+        circle_marker_788942f0dbd5f31af1614916ddfad4ec.bindPopup(popup_d0f7092d58743d765ca317ae94883284)
+        ;
+
+        
+    
+    
+            var circle_marker_ed8611df87947a55d91db04b379e1a3a = L.circleMarker(
+                [11.740626, 78.963713],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_558c7b26641fa787933abb1a8afef8da = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_4760ae1d586ed87d19233c11ec179ebe = $(`<div id="html_4760ae1d586ed87d19233c11ec179ebe" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Kallakurichi<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 283<br>     <b>2020 Nonfatal:</b> 608<br>     <b>2020 Total:</b> 891     </div>`)[0];
+                popup_558c7b26641fa787933abb1a8afef8da.setContent(html_4760ae1d586ed87d19233c11ec179ebe);
+            
+        
+
+        circle_marker_ed8611df87947a55d91db04b379e1a3a.bindPopup(popup_558c7b26641fa787933abb1a8afef8da)
+        ;
+
+        
+    
+    
+            var circle_marker_8b436ebdc4f0bcb35c71f02f689d08e4 = L.circleMarker(
+                [12.879605, 79.704276],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_7ff394ad6a4f32ea0f262b5ac5d035e3 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ec79d16ddb45c8bfb4c0d5e4878713f3 = $(`<div id="html_ec79d16ddb45c8bfb4c0d5e4878713f3" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Kancheepuram<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 293<br>     <b>2020 Nonfatal:</b> 616<br>     <b>2020 Total:</b> 909     </div>`)[0];
+                popup_7ff394ad6a4f32ea0f262b5ac5d035e3.setContent(html_ec79d16ddb45c8bfb4c0d5e4878713f3);
+            
+        
+
+        circle_marker_8b436ebdc4f0bcb35c71f02f689d08e4.bindPopup(popup_7ff394ad6a4f32ea0f262b5ac5d035e3)
+        ;
+
+        
+    
+    
+            var circle_marker_3c0d69601267ce567a360e066598c28c = L.circleMarker(
+                [8.087964, 77.546741],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_f4c9d838e2d2efd8ca98cfc91b071540 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_98818faf05926f8a913fe3788b10b382 = $(`<div id="html_98818faf05926f8a913fe3788b10b382" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Kanniyakumari<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 242<br>     <b>2020 Nonfatal:</b> 901<br>     <b>2020 Total:</b> 1143     </div>`)[0];
+                popup_f4c9d838e2d2efd8ca98cfc91b071540.setContent(html_98818faf05926f8a913fe3788b10b382);
+            
+        
+
+        circle_marker_3c0d69601267ce567a360e066598c28c.bindPopup(popup_f4c9d838e2d2efd8ca98cfc91b071540)
+        ;
+
+        
+    
+    
+            var circle_marker_138451cba9ff07a9fce81de3facb8a4d = L.circleMarker(
+                [10.930152, 78.084855],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_7fb3014d187eb439880d2ad02327e95f = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_917cbc3fddaabf445de9de51c3f3dbc6 = $(`<div id="html_917cbc3fddaabf445de9de51c3f3dbc6" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Karur<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 324<br>     <b>2020 Nonfatal:</b> 656<br>     <b>2020 Total:</b> 980     </div>`)[0];
+                popup_7fb3014d187eb439880d2ad02327e95f.setContent(html_917cbc3fddaabf445de9de51c3f3dbc6);
+            
+        
+
+        circle_marker_138451cba9ff07a9fce81de3facb8a4d.bindPopup(popup_7fb3014d187eb439880d2ad02327e95f)
+        ;
+
+        
+    
+    
+            var circle_marker_fd72ef188afc88f279c19427868c4051 = L.circleMarker(
+                [12.518884, 78.220654],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_ac3077a1a853a87e26bda6cd9c0cbbf8 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_15d7f47d72bacd8454e2dd043d770e32 = $(`<div id="html_15d7f47d72bacd8454e2dd043d770e32" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Krishnagiri<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 543<br>     <b>2020 Nonfatal:</b> 1051<br>     <b>2020 Total:</b> 1594     </div>`)[0];
+                popup_ac3077a1a853a87e26bda6cd9c0cbbf8.setContent(html_15d7f47d72bacd8454e2dd043d770e32);
+            
+        
+
+        circle_marker_fd72ef188afc88f279c19427868c4051.bindPopup(popup_ac3077a1a853a87e26bda6cd9c0cbbf8)
+        ;
+
+        
+    
+    
+            var circle_marker_2aa281885a6a814c6fa3ba4c0cfea3e6 = L.circleMarker(
+                [9.926115, 78.114098],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_886d8c3d7014a644b456624538d6bc74 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_1ef22f944ec2d9d35045bfea1e5ca482 = $(`<div id="html_1ef22f944ec2d9d35045bfea1e5ca482" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Madurai<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 420<br>     <b>2020 Nonfatal:</b> 1015<br>     <b>2020 Total:</b> 1435     </div>`)[0];
+                popup_886d8c3d7014a644b456624538d6bc74.setContent(html_1ef22f944ec2d9d35045bfea1e5ca482);
+            
+        
+
+        circle_marker_2aa281885a6a814c6fa3ba4c0cfea3e6.bindPopup(popup_886d8c3d7014a644b456624538d6bc74)
+        ;
+
+        
+    
+    
+            var circle_marker_9744aeae9e5ea3c49456d08c6db14103 = L.circleMarker(
+                [10.805628, 79.82466],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_ac70bda161e0f021357387c372fa9313 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_5c46e4f921096c4f98ef53fb38d2b2c5 = $(`<div id="html_5c46e4f921096c4f98ef53fb38d2b2c5" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Nagapattinam<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 184<br>     <b>2020 Nonfatal:</b> 534<br>     <b>2020 Total:</b> 718     </div>`)[0];
+                popup_ac70bda161e0f021357387c372fa9313.setContent(html_5c46e4f921096c4f98ef53fb38d2b2c5);
+            
+        
+
+        circle_marker_9744aeae9e5ea3c49456d08c6db14103.bindPopup(popup_ac70bda161e0f021357387c372fa9313)
+        ;
+
+        
+    
+    
+            var circle_marker_51cf419150b730aa55b99337fa4e3320 = L.circleMarker(
+                [11.284225, 78.166153],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_02a572dce71041dbd223fe676b91c633 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_95f245a6e466ad7675b28cf2930a7e82 = $(`<div id="html_95f245a6e466ad7675b28cf2930a7e82" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Namakkal<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 384<br>     <b>2020 Nonfatal:</b> 1135<br>     <b>2020 Total:</b> 1519     </div>`)[0];
+                popup_02a572dce71041dbd223fe676b91c633.setContent(html_95f245a6e466ad7675b28cf2930a7e82);
+            
+        
+
+        circle_marker_51cf419150b730aa55b99337fa4e3320.bindPopup(popup_02a572dce71041dbd223fe676b91c633)
+        ;
+
+        
+    
+    
+            var circle_marker_6a5980ffb45e38ae458238ea21086dee = L.circleMarker(
+                [11.228772, 78.818256],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_c96ad8388234a919589fa35c83dccb17 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8c52daebdc5518acfcb8fe39a26aee5b = $(`<div id="html_8c52daebdc5518acfcb8fe39a26aee5b" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Perambalur<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 154<br>     <b>2020 Nonfatal:</b> 351<br>     <b>2020 Total:</b> 505     </div>`)[0];
+                popup_c96ad8388234a919589fa35c83dccb17.setContent(html_8c52daebdc5518acfcb8fe39a26aee5b);
+            
+        
+
+        circle_marker_6a5980ffb45e38ae458238ea21086dee.bindPopup(popup_c96ad8388234a919589fa35c83dccb17)
+        ;
+
+        
+    
+    
+            var circle_marker_9e288528e9ebd4f0b1dc9423e76355d9 = L.circleMarker(
+                [10.5, 78.833333],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_0648c55681544f91fb9714a5f06cac8f = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_ff9373e3040225aa93e751ee4b8fce0e = $(`<div id="html_ff9373e3040225aa93e751ee4b8fce0e" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Pudukkottai<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 315<br>     <b>2020 Nonfatal:</b> 872<br>     <b>2020 Total:</b> 1187     </div>`)[0];
+                popup_0648c55681544f91fb9714a5f06cac8f.setContent(html_ff9373e3040225aa93e751ee4b8fce0e);
+            
+        
+
+        circle_marker_9e288528e9ebd4f0b1dc9423e76355d9.bindPopup(popup_0648c55681544f91fb9714a5f06cac8f)
+        ;
+
+        
+    
+    
+            var circle_marker_bda33e42d3167490adc86ef6b2462870 = L.circleMarker(
+                [9.5, 78.5],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_5c18695f20f96406a718c0026653c5e4 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_7684e207b1ff5efb14c6c21c7b3629a8 = $(`<div id="html_7684e207b1ff5efb14c6c21c7b3629a8" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Ramanathapuram<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 289<br>     <b>2020 Nonfatal:</b> 720<br>     <b>2020 Total:</b> 1009     </div>`)[0];
+                popup_5c18695f20f96406a718c0026653c5e4.setContent(html_7684e207b1ff5efb14c6c21c7b3629a8);
+            
+        
+
+        circle_marker_bda33e42d3167490adc86ef6b2462870.bindPopup(popup_5c18695f20f96406a718c0026653c5e4)
+        ;
+
+        
+    
+    
+            var circle_marker_b4c1499f94b96223a57ef1242cba2e15 = L.circleMarker(
+                [12.929245, 79.332171],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_f7bc080600efc4b6614c4f81c21f573c = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_25a1db202ddf6715210b6bf44f30593a = $(`<div id="html_25a1db202ddf6715210b6bf44f30593a" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Ranipettai<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 240<br>     <b>2020 Nonfatal:</b> 567<br>     <b>2020 Total:</b> 807     </div>`)[0];
+                popup_f7bc080600efc4b6614c4f81c21f573c.setContent(html_25a1db202ddf6715210b6bf44f30593a);
+            
+        
+
+        circle_marker_b4c1499f94b96223a57ef1242cba2e15.bindPopup(popup_f7bc080600efc4b6614c4f81c21f573c)
+        ;
+
+        
+    
+    
+            var circle_marker_dceed7210eeffbfdaec525390f6cc1fe = L.circleMarker(
+                [44.939156, -123.033121],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_46fd20969719846582205b13c8705308 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_90a805aa42e94143766139cc5e6a9674 = $(`<div id="html_90a805aa42e94143766139cc5e6a9674" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Salem<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 514<br>     <b>2020 Nonfatal:</b> 1249<br>     <b>2020 Total:</b> 1763     </div>`)[0];
+                popup_46fd20969719846582205b13c8705308.setContent(html_90a805aa42e94143766139cc5e6a9674);
+            
+        
+
+        circle_marker_dceed7210eeffbfdaec525390f6cc1fe.bindPopup(popup_46fd20969719846582205b13c8705308)
+        ;
+
+        
+    
+    
+            var circle_marker_3255513e9da252488c70cfb0b440d5a3 = L.circleMarker(
+                [9.96506, 78.720428],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_f9860e09fb0f689a80c4510cb72c1f7c = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_4480bde5099c5273eaa19ff6d9f79850 = $(`<div id="html_4480bde5099c5273eaa19ff6d9f79850" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Sivagangai<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 284<br>     <b>2020 Nonfatal:</b> 530<br>     <b>2020 Total:</b> 814     </div>`)[0];
+                popup_f9860e09fb0f689a80c4510cb72c1f7c.setContent(html_4480bde5099c5273eaa19ff6d9f79850);
+            
+        
+
+        circle_marker_3255513e9da252488c70cfb0b440d5a3.bindPopup(popup_f9860e09fb0f689a80c4510cb72c1f7c)
+        ;
+
+        
+    
+    
+            var circle_marker_25ee731decfb3c86a9228b28fc3ed5fd = L.circleMarker(
+                [9.031896, 77.365361],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_568e47a0366c76ff10dfda182188e851 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_251f4d8547232667fe9ff143b43ba387 = $(`<div id="html_251f4d8547232667fe9ff143b43ba387" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Tenkasi<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 143<br>     <b>2020 Nonfatal:</b> 628<br>     <b>2020 Total:</b> 771     </div>`)[0];
+                popup_568e47a0366c76ff10dfda182188e851.setContent(html_251f4d8547232667fe9ff143b43ba387);
+            
+        
+
+        circle_marker_25ee731decfb3c86a9228b28fc3ed5fd.bindPopup(popup_568e47a0366c76ff10dfda182188e851)
+        ;
+
+        
+    
+    
+            var circle_marker_c6bb6857c448f69c26aa1e79d2674221 = L.circleMarker(
+                [10.786027, 79.13815],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_87c69820d05f9c41b7e3d3b883dce62b = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_2a0716bb81be6cd731cca9c53e3e9520 = $(`<div id="html_2a0716bb81be6cd731cca9c53e3e9520" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Thanjavur<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 445<br>     <b>2020 Nonfatal:</b> 1261<br>     <b>2020 Total:</b> 1706     </div>`)[0];
+                popup_87c69820d05f9c41b7e3d3b883dce62b.setContent(html_2a0716bb81be6cd731cca9c53e3e9520);
+            
+        
+
+        circle_marker_c6bb6857c448f69c26aa1e79d2674221.bindPopup(popup_87c69820d05f9c41b7e3d3b883dce62b)
+        ;
+
+        
+    
+    
+            var circle_marker_d6f5c7454aac83f43f2670992d5a20ea = L.circleMarker(
+                [11.4, 76.7],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_d7db03f4c9779252058c5659d48b26e7 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_04ed55e2c3ea677f0074147158c759ab = $(`<div id="html_04ed55e2c3ea677f0074147158c759ab" style="width: 100.0%; height: 100.0%;">     <b>District:</b> The Nilgiris<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 26<br>     <b>2020 Nonfatal:</b> 132<br>     <b>2020 Total:</b> 158     </div>`)[0];
+                popup_d7db03f4c9779252058c5659d48b26e7.setContent(html_04ed55e2c3ea677f0074147158c759ab);
+            
+        
+
+        circle_marker_d6f5c7454aac83f43f2670992d5a20ea.bindPopup(popup_d7db03f4c9779252058c5659d48b26e7)
+        ;
+
+        
+    
+    
+            var circle_marker_d80b3fc1b483a2791fb80abc45d5002d = L.circleMarker(
+                [9.969664, 77.4742],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_f56940dc6b22184ade5297a973989ecd = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_2108d96eb19cff2b2e7760dfcaa3df15 = $(`<div id="html_2108d96eb19cff2b2e7760dfcaa3df15" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Theni<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 202<br>     <b>2020 Nonfatal:</b> 607<br>     <b>2020 Total:</b> 809     </div>`)[0];
+                popup_f56940dc6b22184ade5297a973989ecd.setContent(html_2108d96eb19cff2b2e7760dfcaa3df15);
+            
+        
+
+        circle_marker_d80b3fc1b483a2791fb80abc45d5002d.bindPopup(popup_f56940dc6b22184ade5297a973989ecd)
+        ;
+
+        
+    
+    
+            var circle_marker_c82bb5626e58ebd535f3555ab3a62633 = L.circleMarker(
+                [13.130148, 79.924354],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_8f1f81f548c685961d3c9ba1c96d5e94 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_da3cb82d361bf1480b0feb3d5c9c2362 = $(`<div id="html_da3cb82d361bf1480b0feb3d5c9c2362" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Tiruvallur<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 328<br>     <b>2020 Nonfatal:</b> 715<br>     <b>2020 Total:</b> 1043     </div>`)[0];
+                popup_8f1f81f548c685961d3c9ba1c96d5e94.setContent(html_da3cb82d361bf1480b0feb3d5c9c2362);
+            
+        
+
+        circle_marker_c82bb5626e58ebd535f3555ab3a62633.bindPopup(popup_8f1f81f548c685961d3c9ba1c96d5e94)
+        ;
+
+        
+    
+    
+            var circle_marker_2e8face26d5567f508963719c66856bd = L.circleMarker(
+                [10.736186, 79.633187],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_ecc1611810a7e7b5f5dedd439d65861e = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_a5a3538b0b96e6f9176a9fec79fc1c2d = $(`<div id="html_a5a3538b0b96e6f9176a9fec79fc1c2d" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Thiruvarur<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 154<br>     <b>2020 Nonfatal:</b> 498<br>     <b>2020 Total:</b> 652     </div>`)[0];
+                popup_ecc1611810a7e7b5f5dedd439d65861e.setContent(html_a5a3538b0b96e6f9176a9fec79fc1c2d);
+            
+        
+
+        circle_marker_2e8face26d5567f508963719c66856bd.bindPopup(popup_ecc1611810a7e7b5f5dedd439d65861e)
+        ;
+
+        
+    
+    
+            var circle_marker_5b2d075fead88b48fc3d867e02dd8a27 = L.circleMarker(
+                [8.80526, 78.145274],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_be19cfb673b9f8c7fa2cc16605c67b92 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_bdd158a4a568052348f8b29a9500af71 = $(`<div id="html_bdd158a4a568052348f8b29a9500af71" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Thoothukudi<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 328<br>     <b>2020 Nonfatal:</b> 691<br>     <b>2020 Total:</b> 1019     </div>`)[0];
+                popup_be19cfb673b9f8c7fa2cc16605c67b92.setContent(html_bdd158a4a568052348f8b29a9500af71);
+            
+        
+
+        circle_marker_5b2d075fead88b48fc3d867e02dd8a27.bindPopup(popup_be19cfb673b9f8c7fa2cc16605c67b92)
+        ;
+
+        
+    
+    
+            var circle_marker_778a72660ee0218c9c7dd95b276fd807 = L.circleMarker(
+                [10.804973, 78.68703],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_0fe749122458bb30256210a2ab72a724 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_d062d8e09cbc72221eda456c02277086 = $(`<div id="html_d062d8e09cbc72221eda456c02277086" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Tiruchirappalli<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 447<br>     <b>2020 Nonfatal:</b> 1042<br>     <b>2020 Total:</b> 1489     </div>`)[0];
+                popup_0fe749122458bb30256210a2ab72a724.setContent(html_d062d8e09cbc72221eda456c02277086);
+            
+        
+
+        circle_marker_778a72660ee0218c9c7dd95b276fd807.bindPopup(popup_0fe749122458bb30256210a2ab72a724)
+        ;
+
+        
+    
+    
+            var circle_marker_f02044f135551c6e7a7275712385f0d6 = L.circleMarker(
+                [8.728427, 77.711292],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_2b7d06879f6a8539de4ff687de1d7db1 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_1ac4f1f6981aefa9acdf16208567760c = $(`<div id="html_1ac4f1f6981aefa9acdf16208567760c" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Tirunelveli<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 210<br>     <b>2020 Nonfatal:</b> 524<br>     <b>2020 Total:</b> 734     </div>`)[0];
+                popup_2b7d06879f6a8539de4ff687de1d7db1.setContent(html_1ac4f1f6981aefa9acdf16208567760c);
+            
+        
+
+        circle_marker_f02044f135551c6e7a7275712385f0d6.bindPopup(popup_2b7d06879f6a8539de4ff687de1d7db1)
+        ;
+
+        
+    
+    
+            var circle_marker_1e883226cbadfa8d326045c3ce00e061 = L.circleMarker(
+                [10.59635, 79.56857],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_cd031748010459c803730db323615bc8 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_1e31e509961026b428e64edd37ec2a0f = $(`<div id="html_1e31e509961026b428e64edd37ec2a0f" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Thirupathur<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 196<br>     <b>2020 Nonfatal:</b> 519<br>     <b>2020 Total:</b> 715     </div>`)[0];
+                popup_cd031748010459c803730db323615bc8.setContent(html_1e31e509961026b428e64edd37ec2a0f);
+            
+        
+
+        circle_marker_1e883226cbadfa8d326045c3ce00e061.bindPopup(popup_cd031748010459c803730db323615bc8)
+        ;
+
+        
+    
+    
+            var circle_marker_e194515c15abe15a4a8ed81aef7a1687 = L.circleMarker(
+                [11.167188, 77.347267],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_7f07aed678db7eb8c26d7473fedda1ea = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_816dda3b6374b3797642882a1b1c1584 = $(`<div id="html_816dda3b6374b3797642882a1b1c1584" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Tirupur<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 619<br>     <b>2020 Nonfatal:</b> 1357<br>     <b>2020 Total:</b> 1976     </div>`)[0];
+                popup_7f07aed678db7eb8c26d7473fedda1ea.setContent(html_816dda3b6374b3797642882a1b1c1584);
+            
+        
+
+        circle_marker_e194515c15abe15a4a8ed81aef7a1687.bindPopup(popup_7f07aed678db7eb8c26d7473fedda1ea)
+        ;
+
+        
+    
+    
+            var circle_marker_5492b273ee48521185e57a01403cc7fe = L.circleMarker(
+                [9.539867, 77.61979],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_e2375afa73617fd655a889e5f8f2e5ec = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_16a4916e47bd9f00d4a0f461e3e111d1 = $(`<div id="html_16a4916e47bd9f00d4a0f461e3e111d1" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Thiruvannamalai<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 471<br>     <b>2020 Nonfatal:</b> 923<br>     <b>2020 Total:</b> 1394     </div>`)[0];
+                popup_e2375afa73617fd655a889e5f8f2e5ec.setContent(html_16a4916e47bd9f00d4a0f461e3e111d1);
+            
+        
+
+        circle_marker_5492b273ee48521185e57a01403cc7fe.bindPopup(popup_e2375afa73617fd655a889e5f8f2e5ec)
+        ;
+
+        
+    
+    
+            var circle_marker_ad4ebe4a2cfc36832e87ada5bf4a1721 = L.circleMarker(
+                [12.794811, 79.000641],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_36e9456b3d14a10cd7a0d45aded0635c = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_1304c0ae348db46fa89b9a3d99d1ec63 = $(`<div id="html_1304c0ae348db46fa89b9a3d99d1ec63" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Vellore<br>     <b>Risk Level:</b> Low Risk<br>     <b>2020 Fatal:</b> 222<br>     <b>2020 Nonfatal:</b> 503<br>     <b>2020 Total:</b> 725     </div>`)[0];
+                popup_36e9456b3d14a10cd7a0d45aded0635c.setContent(html_1304c0ae348db46fa89b9a3d99d1ec63);
+            
+        
+
+        circle_marker_ad4ebe4a2cfc36832e87ada5bf4a1721.bindPopup(popup_36e9456b3d14a10cd7a0d45aded0635c)
+        ;
+
+        
+    
+    
+            var circle_marker_b9abbf6f2a305c9a16d317a52224743e = L.circleMarker(
+                [11.950684, 79.512141],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_5ec7e8342210f25643e4999541d84ed0 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_045e2492c548e264eda96deb18ab513f = $(`<div id="html_045e2492c548e264eda96deb18ab513f" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Villupuram<br>     <b>Risk Level:</b> High Risk<br>     <b>2020 Fatal:</b> 507<br>     <b>2020 Nonfatal:</b> 1430<br>     <b>2020 Total:</b> 1937     </div>`)[0];
+                popup_5ec7e8342210f25643e4999541d84ed0.setContent(html_045e2492c548e264eda96deb18ab513f);
+            
+        
+
+        circle_marker_b9abbf6f2a305c9a16d317a52224743e.bindPopup(popup_5ec7e8342210f25643e4999541d84ed0)
+        ;
+
+        
+    
+    
+            var circle_marker_ceed1e2561aef60bd75c1236887853d9 = L.circleMarker(
+                [9.520894, 77.878456],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.8, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 7, "stroke": true, "weight": 3}
+            ).addTo(map_cbfd13ead332d82d3cfe0293833f7ff5);
+        
+    
+        var popup_b693de79a7cdb2d56933090098fe6082 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_776efe945d67db2b499eab9209d47314 = $(`<div id="html_776efe945d67db2b499eab9209d47314" style="width: 100.0%; height: 100.0%;">     <b>District:</b> Virudhunagar<br>     <b>Risk Level:</b> Medium Risk<br>     <b>2020 Fatal:</b> 352<br>     <b>2020 Nonfatal:</b> 643<br>     <b>2020 Total:</b> 995     </div>`)[0];
+                popup_b693de79a7cdb2d56933090098fe6082.setContent(html_776efe945d67db2b499eab9209d47314);
+            
+        
+
+        circle_marker_ceed1e2561aef60bd75c1236887853d9.bindPopup(popup_b693de79a7cdb2d56933090098fe6082)
+        ;
+
+        
+    
+</script>
+</html>

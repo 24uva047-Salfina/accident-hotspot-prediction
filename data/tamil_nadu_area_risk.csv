@@ -1,0 +1,12 @@
+district,area,latitude,longitude,nearest_distance_km,accident_count,risk_level
+Chengalpattu,Tambaram,12.9249,80.1,29.600664551818426,2962,High
+Chengalpattu,Guduvanchery,12.8452,80.0606,19.763593943794483,2962,High
+Chengalpattu,Maraimalai Nagar,12.7931,80.0251,12.928765883812732,2962,High
+Chengalpattu,Chengalpattu,12.6819,79.9888,0.6106951180227774,2962,High
+Chengalpattu,Kelambakkam,12.7895,80.2209,28.27694921426939,2962,High
+Tiruvallur,Guindy,13.0067,80.2206,34.900683897303715,2317,High
+Tiruvallur,Velachery,12.9815,80.218,35.846154663423874,2317,High
+Tiruvallur,Perambur,13.1167,80.2333,33.48943147003258,2317,High
+Coimbatore,Gandhipuram,11.0168,76.9558,1.8352938109688826,3884,High
+Coimbatore,Peelamedu,11.03,77.043,9.293439213041607,3884,High
+Coimbatore,Singanallur,11.0,77.02,6.242141333909084,3884,High
