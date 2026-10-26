@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tamil Nadu - All Districts & Areas Risk</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<style>
+  body { margin:0; font-family: Arial, sans-serif; }
+  #bar { position:absolute; z-index:1000; top:10px; left:55px; right:10px; max-width:760px;
+         background:#fff; border-radius:10px; padding:10px 14px; box-shadow:0 2px 10px #0004; }
+  #bar a { color:#333; text-decoration:none; font-weight:bold; margin-right:14px; }
+  #bar label { margin-right:12px; font-size:14px; cursor:pointer; }
+  #search { width:230px; padding:5px 8px; margin-right:10px; }
+  #count { font-size:13px; color:#555; margin-top:6px; }
+  #map { position:absolute; top:0; bottom:0; left:0; right:0; }
+  .dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:4px; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <a href="/landing">Home</a><a href="/map">Route Map</a><a href="/dashboard">Dashboard</a><br><br>
+  <input id="search" placeholder="Search area or district..." oninput="applyFilter()">
+  <label><input type="checkbox" class="f" value="Low" checked onchange="applyFilter()"><span class="dot" style="background:#2e9e4f"></span>Low</label>
+  <label><input type="checkbox" class="f" value="Medium" checked onchange="applyFilter()"><span class="dot" style="background:#f0a020"></span>Medium</label>
+  <label><input type="checkbox" class="f" value="High" checked onchange="applyFilter()"><span class="dot" style="background:#d93a3a"></span>High</label>
+  <label><input type="checkbox" class="f" value="No data" checked onchange="applyFilter()"><span class="dot" style="background:#888"></span>No data</label>
+  <div id="count">Loading...</div>
+  <div style="font-size:12px;color:#666;margin-top:4px">District-level historical figures cover 2020-2021. Chennai and Mayiladuthurai risk is an estimate because local accident figures are not included. Area risk is interpolated from nearby district data, not area-level accident records.</div>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+const COLORS = { "Low":"#2e9e4f", "Medium":"#f0a020", "High":"#d93a3a", "No data":"#888888" };
+const map = L.map("map").setView([10.9, 78.4], 7);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            { maxZoom: 18, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+
+const districtLayer = L.layerGroup().addTo(map);
+const areaLayer = L.markerClusterGroup({ disableClusteringAtZoom: 12, chunkedLoading: true }).addTo(map);
+let districts = [], areas = [];
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function liveRisk(lat, lon, id) {
+  const box = document.getElementById(id);
+  box.innerText = "Checking live risk...";
+  try {
+    const r = await (await fetch("/api/predict", { method:"POST",
+      headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ latitude:lat, longitude:lon }) })).json();
+    if (r.status !== "success") { box.innerText = r.message || "Failed"; return; }
+    const w = r.weather ? `${r.weather.temperature} °C, rain ${r.weather.precipitation} mm, wind ${r.weather.wind_speed} km/h`
+                        : "weather unavailable";
+    box.innerHTML = `<b style="color:${COLORS[r.risk_level]}">${r.risk_level}</b> (${esc(w)})<br>` +
+                    (r.recommendations || []).map(esc).join("<br>");
+  } catch (e) { box.innerText = "Live risk failed: " + e.message; }
+}
+
+function popup(name, sub, risk, lat, lon, extra) {
+  const id = "lr" + Math.random().toString(36).slice(2);
+  return `<b>${esc(name)}</b><br>${esc(sub)}<br>Risk: <b style="color:${COLORS[risk]}">${esc(risk)}</b>` +
+         (extra ? "<br>" + extra : "") +
+         (risk === "No data" ? "<br><i>No accident data for this district.</i>" :
+           `<br><button onclick="liveRisk(${lat},${lon},'${id}')">Live risk + weather</button><div id="${id}" style="margin-top:6px"></div>`);
+}
+
+function applyFilter() {
+  const on = new Set([...document.querySelectorAll(".f:checked")].map(x => x.value));
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const match = x => on.has(x.risk) && (!q || (x.name + " " + x.district).toLowerCase().includes(q));
+
+  districtLayer.clearLayers(); areaLayer.clearLayers();
+  const d = districts.filter(match), a = areas.filter(match);
+
+  d.forEach(x => L.circleMarker([x.lat, x.lon], { radius: 13, color:"#222", weight:2,
+      fillColor: COLORS[x.risk], fillOpacity: .9 })
+    .bindTooltip(x.name + " (district)", { permanent: map.getZoom() >= 8, direction:"top" })
+    .bindPopup(popup(x.name, "District", x.risk, x.lat, x.lon, x.extra)).addTo(districtLayer));
+
+  areaLayer.addLayers(a.map(x => L.circleMarker([x.lat, x.lon], { radius: 6, color:"#fff", weight:1,
+      fillColor: COLORS[x.risk], fillOpacity: .95 })
+    .bindTooltip(x.name)
+    .bindPopup(popup(x.name, x.district + " district · " + x.type, x.risk, x.lat, x.lon, "Score: " + x.score))));
+
+  document.getElementById("count").innerText = `${d.length} districts, ${a.length} areas shown`;
+  if (q && (d.length + a.length) === 1) { const t = d[0] || a[0]; map.setView([t.lat, t.lon], 11); }
+}
+
+(async function init() {
+  try {
+    const [dj, aj] = await Promise.all([fetch("/api/districts-all").then(r => r.json()),
+                                        fetch("/api/areas").then(r => r.json())]);
+    districts = dj.districts.map(x => ({ name:x.district, district:x.district, lat:x.latitude, lon:x.longitude,
+      risk:x.risk, type:"district", extra: x.estimated
+        ? `ESTIMATED RISK — ${x.risk_basis}. Nearest data district: ${x.nearest_data_district}.`
+        : `${x.risk_basis}. Accidents 2021: ${x.total_2021}, fatal: ${x.fatal_2021}` }));
+    areas = aj.areas.map(x => ({ name:x.area, district:x.district, lat:x.latitude, lon:x.longitude,
+      risk:x.risk, type:x.type, score:x.score }));
+    applyFilter();
+    if (!areas.length)
+      document.getElementById("count").innerText += "  - run  python fetch_areas.py  to load all areas";
+  } catch (e) { document.getElementById("count").innerText = "Failed to load data: " + e.message; }
+})();
+map.on("zoomend", applyFilter);
+</script>
+</body>
+</html>

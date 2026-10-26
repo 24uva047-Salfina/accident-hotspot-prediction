@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Login</title>
+<link rel="icon" type="image/png" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXXVq-Ia5_5uoXlNcPzdZwioW3zfWE99P7aSaTDgKoFA&s=10">
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial;
+}
+
+body{
+background:#eef2ff;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+.container{
+width:900px;
+height:500px;
+display:flex;
+border-radius:20px;
+overflow:hidden;
+box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+.left{
+width:50%;
+background:linear-gradient(135deg,#4f46e5,#7c3aed);
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+}
+
+.left h1{
+font-size:45px;
+margin-bottom:10px;
+}
+
+.left p{
+font-size:18px;
+}
+
+.right{
+width:50%;
+background:white;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.form{
+width:80%;
+}
+
+.form h2{
+margin-bottom:30px;
+text-align:center;
+color:#333;
+}
+
+input{
+width:100%;
+padding:12px;
+margin-bottom:15px;
+border:1px solid #ccc;
+border-radius:8px;
+font-size:16px;
+}
+
+.blink{
+    animation:blink-animation 2s infinite;  
+}
+
+@keyframes blink-animation {
+    50%{opacity:0;}
+}
+
+button{
+width:100%;
+padding:14px;
+background:#4f46e5;
+color:white;
+border:none;
+border-radius:8px;
+font-size:17px;
+cursor:pointer;
+transition:.3s;
+}
+
+button:hover{
+background:#372dc7;
+}
+input::placeholder{
+	text-align: center;
+	color:#4f46e5;
+
+}
+
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="left">
+<h1 style="font-size: 40px; text-align: center;">ACCIDENT HOTSPOT PREDICTION</h1>
+<p>Login to Continue</p>
+</div>
+
+<div class="right">
+
+<div class="form">
+
+<input type="text" id="username" placeholder="Enter Username" autocomplete="off"
+style="border: 4px solid #4f46e5;" onkeydown="if(event.key==='Enter'){login();}">
+
+<button onclick="login()">Login</button>
+
+<div class="modal-body blink"style="color:red; text-align: center; margin-top: 10px; " id="error"></div>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+function login(){
+
+let user=document.getElementById("username").value.trim();
+
+if(user==""){
+document.getElementById("error").innerHTML = "Enter Username";
+return;
+}
+
+try { sessionStorage.setItem("username", user); } catch(e) {}
+
+window.location = "/landing";
+
+}
+
+</script>
+
+</body>
+</html>
