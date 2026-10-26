@@ -339,6 +339,11 @@
         <span>Prediction</span>
     </a>
 
+    <a href="/all-areas" class="menu-item">
+        All Areas
+    </a>
+
+
     <a href="/" class="menu-item">
         <i class="bi bi-box-arrow-right"></i>
         <span>Logout</span>
@@ -423,6 +428,14 @@
             >
                 <i class="bi bi-stop-circle"></i>
                 Stop GPS
+            </button>
+
+            <button
+                class="btn btn-warning btn-sm"
+                onclick="predictSelectedRisk()"
+            >
+                <i class="bi bi-shield-exclamation"></i>
+                Predict Risk
             </button>
 
         </div>
@@ -556,16 +569,13 @@
        MAP INITIALIZATION
     ========================================================= */
 
-    const map = L.map("map").setView(
-        [11.1271, 78.6569],
-        7
-    );
+    const map = L.map("map").setView([11.1271, 78.6569], 7);
 
     L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
             maxZoom: 19,
-            attribution: "&copy; OpenStreetMap contributors"
+            attribution: '&copy; OpenStreetMap contributors'
         }
     ).addTo(map);
 
@@ -576,7 +586,6 @@
 
     let gpsMarker = null;
     let gpsAccuracyCircle = null;
-
     let gpsWatchId = null;
 
     let startMarker = null;
@@ -586,29 +595,48 @@
 
     let currentGPSLocation = null;
 
-    let lastRiskDistrict = null;
+    // Location selected by clicking on the map
+    let selectedMapLocation = null;
+    let selectedMapMarker = null;
+    let selectedPlaceInfo = null;      // {area, district} of that click
 
-    let routeCoordinates = [];
+    let lastRiskDistrict = null;
+    let lastRiskLevel = null;
 
     let routeActive = false;
 
+    let lastLive = { t: 0, lat: null, lon: null };
+    let riskCardTimer = null;
 
-    /* =========================================================
-       RISK VALUES
-    ========================================================= */
+    let incidentsDisabled = false;
+    let incidentTimer = null;
 
-    const riskValue = {
-
-        "Low": 1,
-        "Medium": 2,
-        "High": 3
-
-    };
+    const NO_DATA_COLOR = "#6c757d";
 
 
     /* =========================================================
-       RISK COLORS
+       SMALL HELPERS
     ========================================================= */
+
+    function esc(value) {
+
+        return String(value === undefined || value === null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+
+    }
+
+    function norm(value) {
+
+        return String(value || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9 ]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+    }
 
     function getRiskColor(risk) {
 
@@ -620,12 +648,200 @@
             return "#fd7e14";
         }
 
+        if (risk === "No data") {
+            return NO_DATA_COLOR;
+        }
+
         return "#198754";
+
+    }
+
+    function setBadge(risk) {
+
+        const badge = document.getElementById("currentRiskBadge");
+
+        badge.innerText = "Risk: " + risk;
+        badge.className = "badge";
+
+        if (risk === "High") {
+            badge.classList.add("bg-danger");
+        }
+        else if (risk === "Medium") {
+            badge.classList.add("bg-warning", "text-dark");
+        }
+        else if (risk === "No data") {
+            badge.classList.add("bg-secondary");
+        }
+        else {
+            badge.classList.add("bg-success");
+        }
+
     }
 
 
     /* =========================================================
-       NESTED LOCATION NAME
+       HAVERSINE DISTANCE (km)
+    ========================================================= */
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+
+        const R = 6371;
+
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) *
+            Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    }
+
+
+    /* =========================================================
+       CHECK TN
+    ========================================================= */
+
+    function isTamilNadu(lat, lon) {
+
+        return (
+            lat >= 8 &&
+            lat <= 14 &&
+            lon >= 76 &&
+            lon <= 81
+        );
+
+    }
+
+
+    /* =========================================================
+       PLACE LIST (38 districts + all areas from the backend)
+       Used for hotspot markers AND for searching places that
+       OpenStreetMap search cannot find.
+    ========================================================= */
+
+    let PLACES = [];
+
+    let hotspotLayer = L.layerGroup().addTo(map);
+
+    function drawHotspots(districts) {
+
+        hotspotLayer.clearLayers();
+
+        districts.forEach(function (item) {
+
+            if (!item.latitude || !item.longitude) return;
+
+            const risk = String(item.risk || "Low");
+
+            const color = getRiskColor(risk);
+
+            const marker = L.circleMarker(
+                [item.latitude, item.longitude],
+                {
+                    radius: risk === "High" ? 10 : risk === "Medium" ? 8 : 6,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.75,
+                    weight: 2
+                }
+            );
+
+            marker.bindPopup(
+                "<b>District:</b> " + esc(item.district) +
+                "<br><b>Risk Level:</b> " + esc(risk) +
+                "<br><b>Data Basis:</b> " + esc(
+                    item.risk_basis ||
+                    (item.total_2021 != null
+                        ? "Historical district accident data"
+                        : "Estimated from nearby districts")
+                ) +
+                (
+                    item.total_2021 != null
+                        ? "<br><b>2021 Accidents:</b> " + esc(item.total_2021)
+                        : ""
+                )
+            );
+
+            marker.addTo(hotspotLayer);
+
+        });
+
+    }
+
+    const placesReady = (async function () {
+
+        try {
+
+            const results = await Promise.all([
+                fetch("/api/districts-all").then(r => r.json()),
+                fetch("/api/areas").then(r => r.json())
+            ]);
+
+            const d = results[0].districts || [];
+            const a = results[1].areas || [];
+
+            d.forEach(x => PLACES.push({
+                name: x.district, district: x.district,
+                lat: x.latitude, lon: x.longitude, kind: "district"
+            }));
+
+            a.forEach(x => PLACES.push({
+                name: x.area, district: x.district,
+                lat: x.latitude, lon: x.longitude, kind: x.type || "area"
+            }));
+
+            drawHotspots(d);
+
+        }
+        catch (error) {
+
+            console.error("Place loading error:", error);
+
+        }
+
+    })();
+
+    function findLocalPlace(text) {
+
+        const parts = String(text).split(",");
+
+        const q = norm(parts[0]);
+        const dq = norm(parts[1] || "");
+
+        if (q.length < 3) return null;
+
+        let found = PLACES.filter(p => norm(p.name) === q);
+
+        if (!found.length && q.length >= 5) {
+            found = PLACES.filter(p => norm(p.name).startsWith(q));
+        }
+
+        if (!found.length) return null;
+
+        if (dq) {
+            const sameDistrict = found.filter(
+                p => norm(p.district).includes(dq)
+            );
+            if (sameDistrict.length) found = sameDistrict;
+        }
+
+        found.sort(
+            (a, b) =>
+                (a.kind === "district" ? 0 : 1) -
+                (b.kind === "district" ? 0 : 1)
+        );
+
+        return found[0];
+
+    }
+
+
+    /* =========================================================
+       NAMES FROM OPENSTREETMAP ADDRESS
     ========================================================= */
 
     function getAreaName(address) {
@@ -633,20 +849,20 @@
         return (
             address.neighbourhood ||
             address.suburb ||
+            address.quarter ||
+            address.city_district ||
+            address.residential ||
+            address.hamlet ||
             address.village ||
             address.town ||
-            address.city_district ||
             address.city ||
             address.municipality ||
+            address.locality ||
+            address.road ||
             "Selected Location"
         );
 
     }
-
-
-    /* =========================================================
-       GET DISTRICT
-    ========================================================= */
 
     function getDistrictName(address) {
 
@@ -660,133 +876,147 @@
 
     }
 
+    /* Reverse geocode a point -> {area, district}
+       (this function was missing, so "Predict Risk" always failed) */
+    async function reverseGeocodeLocation(lat, lon) {
 
-    /* =========================================================
-       HAVERSINE DISTANCE
-    ========================================================= */
+        try {
 
-    function calculateDistance(
-        lat1,
-        lon1,
-        lat2,
-        lon2
-    ) {
+            const url =
+                "https://nominatim.openstreetmap.org/reverse?" +
+                new URLSearchParams({
+                    lat: lat,
+                    lon: lon,
+                    format: "json",
+                    zoom: 18,
+                    addressdetails: 1
+                });
 
-        const R = 6371;
+            const response = await fetch(url);
 
-        const dLat =
-            (lat2 - lat1) *
-            Math.PI / 180;
+            if (!response.ok) {
+                throw new Error("Reverse geocoding failed");
+            }
 
-        const dLon =
-            (lon2 - lon1) *
-            Math.PI / 180;
+            const data = await response.json();
+            const address = data.address || {};
 
-        const a =
-            Math.sin(dLat / 2) *
-            Math.sin(dLat / 2) +
+            const area = getAreaName(address);
 
-            Math.cos(lat1 * Math.PI / 180) *
-            Math.cos(lat2 * Math.PI / 180) *
+            return {
+                area:
+                    area !== "Selected Location"
+                        ? area
+                        : (
+                            data.name ||
+                            String(data.display_name || "").split(",")[0] ||
+                            "Selected Location"
+                        ),
+                district: getDistrictName(address)
+            };
 
-            Math.sin(dLon / 2) *
-            Math.sin(dLon / 2);
+        }
+        catch (error) {
 
-        const c =
-            2 *
-            Math.atan2(
-                Math.sqrt(a),
-                Math.sqrt(1 - a)
-            );
+            console.log("Reverse geocode error:", error);
 
-        return R * c;
-
-    }
-
-
-    /* =========================================================
-       CHECK TN
-    ========================================================= */
-
-    function isTamilNadu(
-        lat,
-        lon
-    ) {
-
-        return (
-            lat >= 8 &&
-            lat <= 14 &&
-            lon >= 76 &&
-            lon <= 81
-        );
-
-    }
-
-
-    /* =========================================================
-       NOMINATIM SEARCH
-    ========================================================= */
-
-    async function geocodeLocation(
-        location
-    ) {
-
-        const url =
-            "https://nominatim.openstreetmap.org/search?" +
-
-            new URLSearchParams({
-
-                q: location + ", Tamil Nadu, India",
-
-                format: "json",
-
-                limit: "1",
-
-                addressdetails: "1"
-
-            });
-
-        const response =
-            await fetch(url, {
-
-                headers: {
-
-                    "Accept":
-                        "application/json"
-
-                }
-
-            });
-
-        const data =
-            await response.json();
-
-        if (!data.length) {
-
-            throw new Error(
-                "Location not found"
-            );
+            return {
+                area: "Selected Location",
+                district: "Tamil Nadu"
+            };
 
         }
 
-        const result =
-            data[0];
+    }
 
-        return {
 
-            lat:
-                parseFloat(result.lat),
+    /* =========================================================
+       SEARCH A PLACE
+       1) our own list (districts + areas)  2) OpenStreetMap,
+       restricted to the Tamil Nadu box
+    ========================================================= */
 
-            lon:
-                parseFloat(result.lon),
+    async function nominatimSearch(query) {
 
-            display:
-                result.display_name,
+        const url =
+            "https://nominatim.openstreetmap.org/search?" +
+            new URLSearchParams({
+                q: query,
+                format: "jsonv2",
+                limit: "8",
+                addressdetails: "1",
+                countrycodes: "in",
+                viewbox: "76,14,81,8",
+                bounded: "1"
+            });
 
-            address:
-                result.address || {}
+        const response = await fetch(url, {
+            headers: { "Accept": "application/json" }
+        });
 
-        };
+        if (!response.ok) {
+            throw new Error("Location search is temporarily unavailable.");
+        }
+
+        return response.json();
+
+    }
+
+    async function geocodeLocation(location) {
+
+        const input = location.trim();
+
+        if (!input) {
+            throw new Error("Please enter a location.");
+        }
+
+        try { await placesReady; } catch (e) {}
+
+        const local = findLocalPlace(input);
+
+        if (local) {
+
+            return {
+                lat: local.lat,
+                lon: local.lon,
+                display: local.name + ", " + local.district,
+                address: {}
+            };
+
+        }
+
+        // Pothanur is ambiguous, so use Coimbatore context.
+        const first = /^pothanur$/i.test(input)
+            ? "Pothanur, Coimbatore, Tamil Nadu, India"
+            : input + ", Tamil Nadu, India";
+
+        const attempts = [first, input];
+
+        for (const query of attempts) {
+
+            const results = await nominatimSearch(query);
+
+            const result = results.find(
+                item => isTamilNadu(Number(item.lat), Number(item.lon))
+            );
+
+            if (result) {
+
+                return {
+                    lat: Number(result.lat),
+                    lon: Number(result.lon),
+                    display: result.display_name,
+                    address: result.address || {}
+                };
+
+            }
+
+        }
+
+        throw new Error(
+            "Location not found. Try the area with its district, " +
+            "for example: Tambaram, Chengalpattu."
+        );
 
     }
 
@@ -799,9 +1029,7 @@
 
         if (!currentGPSLocation) {
 
-            alert(
-                "Please start GPS first."
-            );
+            alert("Please start GPS first.");
 
             startGPS();
 
@@ -809,16 +1037,11 @@
 
         }
 
-        document.getElementById(
-            "startLocation"
-        ).value =
+        document.getElementById("startLocation").value =
             "My Current Location";
 
         map.setView(
-            [
-                currentGPSLocation.lat,
-                currentGPSLocation.lon
-            ],
+            [currentGPSLocation.lat, currentGPSLocation.lon],
             15
         );
 
@@ -833,37 +1056,32 @@
 
         if (!navigator.geolocation) {
 
-            alert(
-                "GPS is not supported by this browser."
-            );
+            alert("GPS is not supported by this browser.");
 
             return;
 
         }
 
-        document.getElementById(
-            "gpsStatus"
-        ).innerText =
+        if (gpsWatchId !== null) {
+            return;      // already tracking
+        }
+
+        document.getElementById("gpsStatus").innerText =
             "Requesting GPS location...";
 
-        gpsWatchId =
-            navigator.geolocation.watchPosition(
+        gpsWatchId = navigator.geolocation.watchPosition(
 
-                handleGPSPosition,
+            handleGPSPosition,
 
-                handleGPSError,
+            handleGPSError,
 
-                {
+            {
+                enableHighAccuracy: true,
+                maximumAge: 5000,
+                timeout: 15000
+            }
 
-                    enableHighAccuracy: true,
-
-                    maximumAge: 5000,
-
-                    timeout: 15000
-
-                }
-
-            );
+        );
 
     }
 
@@ -872,156 +1090,95 @@
        GPS POSITION
     ========================================================= */
 
-    async function handleGPSPosition(
-        position
-    ) {
+    async function handleGPSPosition(position) {
 
-        const lat =
-            position.coords.latitude;
-
-        const lon =
-            position.coords.longitude;
-
-        const accuracy =
-            position.coords.accuracy;
-
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
 
         if (!isTamilNadu(lat, lon)) {
 
-            document.getElementById(
-                "gpsStatus"
-            ).innerText =
+            document.getElementById("gpsStatus").innerText =
                 "GPS location is outside Tamil Nadu";
 
             return;
 
         }
 
+        currentGPSLocation = { lat: lat, lon: lon };
 
-        currentGPSLocation = {
-
-            lat: lat,
-
-            lon: lon
-
-        };
-
-
-        /* ================================================
-           UPDATE GPS STATUS
-        ================================================= */
-
-        document.getElementById(
-            "gpsStatus"
-        ).innerText =
+        document.getElementById("gpsStatus").innerText =
             "GPS Tracking Active";
 
-        document.getElementById(
-            "gpsCoordinates"
-        ).innerText =
+        document.getElementById("gpsCoordinates").innerText =
+            lat.toFixed(6) + ", " + lon.toFixed(6) +
+            " | Accuracy: " + Math.round(accuracy) + " m";
 
-            lat.toFixed(6) +
-            ", " +
-            lon.toFixed(6) +
-
-            " | Accuracy: " +
-
-            Math.round(accuracy) +
-            " m";
+        document.getElementById("gpsDot").classList.add("active");
 
 
-        document.getElementById(
-            "gpsDot"
-        ).classList.add("active");
-
-
-        /* ================================================
-           CREATE GPS MARKER
-        ================================================= */
+        /* GPS MARKER */
 
         if (!gpsMarker) {
 
-            gpsMarker =
-                L.marker(
-                    [lat, lon],
-                    {
+            gpsMarker = L.marker(
+                [lat, lon],
+                { title: "Your Current Location" }
+            ).addTo(map);
 
-                        title:
-                            "Your Current Location"
-
-                    }
-                ).addTo(map);
-
-            gpsMarker.bindPopup(
-                "📍 You are here"
-            );
+            gpsMarker.bindPopup("📍 You are here");
 
         }
         else {
 
-            gpsMarker.setLatLng(
-                [lat, lon]
-            );
+            gpsMarker.setLatLng([lat, lon]);
 
         }
 
 
-        /* ================================================
-           ACCURACY CIRCLE
-        ================================================= */
+        /* ACCURACY CIRCLE */
 
         if (!gpsAccuracyCircle) {
 
-            gpsAccuracyCircle =
-                L.circle(
-                    [lat, lon],
-                    {
-
-                        radius: accuracy,
-
-                        color: "#0d6efd",
-
-                        fillOpacity: 0.08
-
-                    }
-                ).addTo(map);
+            gpsAccuracyCircle = L.circle(
+                [lat, lon],
+                {
+                    radius: accuracy,
+                    color: "#0d6efd",
+                    fillOpacity: 0.08
+                }
+            ).addTo(map);
 
         }
         else {
 
-            gpsAccuracyCircle.setLatLng(
-                [lat, lon]
-            );
-
-            gpsAccuracyCircle.setRadius(
-                accuracy
-            );
+            gpsAccuracyCircle.setLatLng([lat, lon]);
+            gpsAccuracyCircle.setRadius(accuracy);
 
         }
 
 
-        /* ================================================
-           CHECK LIVE RISK
-        ================================================= */
+        /* LIVE RISK: at most every 30 s, or after moving 300 m */
 
-        await checkLiveRisk(
-            lat,
-            lon
-        );
+        const now = Date.now();
 
+        const moved =
+            lastLive.lat === null
+                ? Infinity
+                : calculateDistance(lastLive.lat, lastLive.lon, lat, lon);
 
-        /* ================================================
-           KEEP MAP ON USER
-        ================================================= */
+        if (now - lastLive.t >= 30000 || moved >= 0.3) {
+
+            lastLive = { t: now, lat: lat, lon: lon };
+
+            await checkLiveRisk(lat, lon);
+
+        }
+
 
         if (routeActive) {
 
-            map.panTo(
-                [lat, lon],
-                {
-                    animate: true
-                }
-            );
+            map.panTo([lat, lon], { animate: true });
 
         }
 
@@ -1032,42 +1189,25 @@
        GPS ERROR
     ========================================================= */
 
-    function handleGPSError(
-        error
-    ) {
+    function handleGPSError(error) {
 
-        let message =
-            "Unable to get GPS location.";
+        let message = "Unable to get GPS location.";
 
         if (error.code === 1) {
-
-            message =
-                "Location permission denied. Please allow GPS permission.";
-
+            message = "Location permission denied. Please allow GPS permission.";
         }
 
         if (error.code === 2) {
-
-            message =
-                "GPS location unavailable.";
-
+            message = "GPS location unavailable.";
         }
 
         if (error.code === 3) {
-
-            message =
-                "GPS request timed out.";
-
+            message = "GPS request timed out.";
         }
 
-        document.getElementById(
-            "gpsStatus"
-        ).innerText =
-            message;
+        document.getElementById("gpsStatus").innerText = message;
 
-        document.getElementById(
-            "gpsDot"
-        ).classList.remove("active");
+        document.getElementById("gpsDot").classList.remove("active");
 
     }
 
@@ -1080,159 +1220,156 @@
 
         if (gpsWatchId !== null) {
 
-            navigator.geolocation.clearWatch(
-                gpsWatchId
-            );
+            navigator.geolocation.clearWatch(gpsWatchId);
 
             gpsWatchId = null;
 
         }
 
-        document.getElementById(
-            "gpsStatus"
-        ).innerText =
+        document.getElementById("gpsStatus").innerText =
             "GPS Tracking Stopped";
 
-        document.getElementById(
-            "gpsDot"
-        ).classList.remove(
-            "active"
-        );
+        document.getElementById("gpsDot").classList.remove("active");
 
     }
 
 
     /* =========================================================
-       LIVE RISK API
+       PREDICT RISK FOR SELECTED MAP LOCATION (or GPS)
     ========================================================= */
 
-    async function checkLiveRisk(
-        lat,
-        lon
-    ) {
+    async function predictSelectedRisk() {
+
+        const location = selectedMapLocation || currentGPSLocation;
+
+        if (!location) {
+            alert("Please click a location on the map or start GPS first.");
+            return;
+        }
+
+        if (!isTamilNadu(location.lat, location.lon)) {
+            alert("Please select a location inside Tamil Nadu.");
+            return;
+        }
+
+        const button = document.querySelector(
+            'button[onclick="predictSelectedRisk()"]'
+        );
+
+        const originalText = button ? button.innerHTML : "";
+
+        if (button) {
+            button.disabled = true;
+            button.innerHTML =
+                '<span class="spinner-border spinner-border-sm"></span> Predicting...';
+        }
 
         try {
 
-            const response =
-                await fetch(
-                    "/api/predict",
-                    {
+            // The district named by the map is sent to the backend so the
+            // prediction uses the REAL district, not just the nearest centre.
+            const info =
+                (selectedMapLocation && selectedPlaceInfo)
+                    ? selectedPlaceInfo
+                    : await reverseGeocodeLocation(location.lat, location.lon);
 
-                        method: "POST",
+            const response = await fetch("/api/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    latitude: location.lat,
+                    longitude: location.lon,
+                    district_hint: info.district
+                })
+            });
 
-                        headers: {
+            const data = await response.json();
 
-                            "Content-Type":
-                                "application/json"
-
-                        },
-
-                        body:
-                            JSON.stringify({
-
-                                latitude: lat,
-
-                                longitude: lon
-
-                            })
-
-                    }
+            if (
+                !response.ok ||
+                data.status !== "success" ||
+                !data.risk_level
+            ) {
+                throw new Error(
+                    data.error || data.message ||
+                    "Prediction failed. Check the Flask backend."
                 );
+            }
 
+            setBadge(data.risk_level);
+
+            showRiskRecommendation(
+                Object.assign({}, data, {
+                    selectedArea: info.area,
+                    selectedDistrict: info.district
+                }),
+                false
+            );
+
+        }
+        catch (error) {
+
+            console.error("Selected location prediction error:", error);
+
+            alert(error.message || "Prediction failed. Please check the backend.");
+
+        }
+        finally {
+
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+
+        }
+
+    }
+
+
+    /* =========================================================
+       LIVE RISK API (GPS)
+    ========================================================= */
+
+    async function checkLiveRisk(lat, lon) {
+
+        try {
+
+            const response = await fetch("/api/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ latitude: lat, longitude: lon })
+            });
 
             if (!response.ok) {
-
                 return;
-
             }
 
+            const data = await response.json();
 
-            const data =
-                await response.json();
-
-
-            if (
-                data.status !== "success"
-            ) {
-
+            if (data.status !== "success") {
                 return;
-
             }
 
+            const risk = data.risk_level;
+            const district = data.district;
 
-            const risk =
-                data.risk_level;
+            setBadge(risk);
 
-            const district =
-                data.district;
+            /* popup only when the district or the risk level changes */
 
+            if (district !== lastRiskDistrict || risk !== lastRiskLevel) {
 
-            /* ============================================
-               UPDATE BADGE
-            ============================================ */
+                lastRiskDistrict = district;
+                lastRiskLevel = risk;
 
-            const badge =
-                document.getElementById(
-                    "currentRiskBadge"
-                );
-
-            badge.innerText =
-                "Risk: " + risk;
-
-            badge.className =
-                "badge";
-
-
-            if (risk === "High") {
-
-                badge.classList.add(
-                    "bg-danger"
-                );
-
-            }
-            else if (
-                risk === "Medium"
-            ) {
-
-                badge.classList.add(
-                    "bg-warning",
-                    "text-dark"
-                );
-
-            }
-            else {
-
-                badge.classList.add(
-                    "bg-success"
-                );
-
-            }
-
-
-            /* ============================================
-               SHOW POPUP ONLY WHEN RISK CHANGES
-            ============================================ */
-
-            if (
-                district !== lastRiskDistrict
-            ) {
-
-                lastRiskDistrict =
-                    district;
-
-                showRiskRecommendation(
-                    data
-                );
+                showRiskRecommendation(data, true);
 
             }
 
         }
         catch (error) {
 
-            console.log(
-                "Live risk error:",
-                error
-            );
+            console.log("Live risk error:", error);
 
         }
 
@@ -1243,186 +1380,145 @@
        SHOW RISK RECOMMENDATION
     ========================================================= */
 
-    function showRiskRecommendation(
-        data
-    ) {
+    function showRiskRecommendation(data, autoClose) {
 
-        const risk =
-            data.risk_level;
+        const risk = data.risk_level;
+        const district = data.district;
+        const confidence = data.confidence;
+        const weather = data.weather || {};
 
-        const district =
-            data.district;
+        const card = document.getElementById("riskInfoCard");
+        const header = document.getElementById("riskHeader");
 
-        const confidence =
-            data.confidence;
-
-        const weather =
-            data.weather || {};
-
-
-        const card =
-            document.getElementById(
-                "riskInfoCard"
-            );
-
-        const header =
-            document.getElementById(
-                "riskHeader"
-            );
-
-
-        header.className =
-            "info-header";
-
+        header.className = "info-header";
+        header.style.background = "";
+        header.style.color = "";
 
         if (risk === "High") {
-
-            header.classList.add(
-                "risk-high"
-            );
-
+            header.classList.add("risk-high");
         }
-        else if (
-            risk === "Medium"
-        ) {
-
-            header.classList.add(
-                "risk-medium"
-            );
-
+        else if (risk === "Medium") {
+            header.classList.add("risk-medium");
+        }
+        else if (risk === "No data") {
+            header.style.background = NO_DATA_COLOR;
+            header.style.color = "white";
         }
         else {
+            header.classList.add("risk-low");
+        }
 
-            header.classList.add(
-                "risk-low"
-            );
+        document.getElementById("riskTitle").innerText =
+            risk === "High"
+                ? "⚠️ HIGH RISK AHEAD"
+                : risk === "Medium"
+                ? "⚠️ MEDIUM RISK AREA"
+                : risk === "No data"
+                ? "ℹ️ NO ACCIDENT DATA"
+                : "🟢 LOW RISK AREA";
+
+        document.getElementById("riskMessage").innerHTML =
+            (data.selectedArea
+                ? "<strong>Area:</strong> " + esc(data.selectedArea) + "<br>"
+                : "") +
+            "<strong>Current Risk:</strong> " + esc(risk);
+
+        document.getElementById("riskLocation").innerHTML =
+            "<strong>District:</strong> " + esc(district) +
+            (data.estimated
+                ? " <small>(estimated from nearby districts)</small>"
+                : "");
+
+
+        /* WEATHER: temperature, rain, wind */
+
+        let weatherText = "Not available right now";
+
+        if (weather.temperature !== undefined) {
+
+            weatherText =
+                weather.temperature + " °C, rain " +
+                weather.precipitation + " mm, wind " +
+                weather.wind_speed + " km/h";
 
         }
 
-
-        document.getElementById(
-            "riskTitle"
-        ).innerText =
-
-            risk === "High"
-
-                ? "⚠️ HIGH RISK AHEAD"
-
-                : risk === "Medium"
-
-                ? "⚠️ MEDIUM RISK AREA"
-
-                : "🟢 LOW RISK AREA";
+        document.getElementById("riskWeather").innerHTML =
+            "<strong>Weather:</strong> " + esc(weatherText);
 
 
-        document.getElementById(
-            "riskMessage"
-        ).innerHTML =
-
-            "<strong>Current Risk:</strong> " +
-            risk;
-
-
-        document.getElementById(
-            "riskLocation"
-        ).innerHTML =
-
-            "<strong>District:</strong> " +
-            district;
-
-
-        document.getElementById(
-            "riskWeather"
-        ).innerHTML =
-
-            "<strong>Weather:</strong> " +
-
-            (
-                weather.temperature !== undefined
-
-                    ? weather.temperature +
-                      " °C"
-
-                    : "Available"
-            );
-
+        /* RECOMMENDATION */
 
         let recommendation = "";
 
-
         if (risk === "High") {
 
             recommendation =
-
                 "⚠️ <strong>High accident risk detected.</strong><br>" +
-
                 "Drive carefully and reduce your speed." +
-
                 "<br><br>" +
-
                 "🛡️ If an alternative lower-risk route is available, consider using it.";
 
         }
-        else if (
-            risk === "Medium"
-        ) {
+        else if (risk === "Medium") {
 
             recommendation =
-
                 "⚠️ <strong>Medium accident risk.</strong><br>" +
-
                 "Please drive carefully and maintain a safe distance.";
+
+        }
+        else if (risk === "No data") {
+
+            recommendation =
+                "ℹ️ <strong>No accident data for this district.</strong><br>" +
+                "A risk level cannot be shown. Follow normal road-safety rules.";
 
         }
         else {
 
             recommendation =
-
                 "🟢 <strong>Low accident risk.</strong><br>" +
-
                 "You are currently travelling through a lower-risk area.";
 
         }
 
-
-        if (confidence !== undefined) {
+        if (data.weather_factors && data.weather_factors.length) {
 
             recommendation +=
-
-                "<br><br>" +
-
-                "<small>Model confidence: " +
-
-                Number(confidence).toFixed(2) +
-
-                "%</small>";
+                "<br><br>🌧️ <strong>Weather alert:</strong> " +
+                data.weather_factors.map(esc).join(", ");
 
         }
 
+        if (confidence !== undefined && confidence !== null) {
 
-        document.getElementById(
-            "riskRecommendation"
-        ).innerHTML =
+            recommendation +=
+                "<br><br><small>Model confidence: " +
+                Number(confidence).toFixed(2) + "%</small>";
+
+        }
+
+        document.getElementById("riskRecommendation").innerHTML =
             recommendation;
 
-
-        card.style.display =
-            "block";
+        card.style.display = "block";
 
 
-        /* ============================================
-           AUTO CLOSE AFTER 8 SECONDS
-        ============================================ */
+        /* AUTO CLOSE after 8 s (only for automatic GPS popups).
+           The old timer is cancelled so it cannot close a newer card. */
 
-        setTimeout(
-            function() {
+        if (riskCardTimer) {
+            clearTimeout(riskCardTimer);
+            riskCardTimer = null;
+        }
 
-                card.style.display =
-                    "none";
+        if (autoClose !== false) {
 
-            },
-            8000
-        );
+            riskCardTimer = setTimeout(function () {
+                card.style.display = "none";
+            }, 8000);
+
+        }
 
     }
 
@@ -1433,10 +1529,7 @@
 
     function closeRiskCard() {
 
-        document.getElementById(
-            "riskInfoCard"
-        ).style.display =
-            "none";
+        document.getElementById("riskInfoCard").style.display = "none";
 
     }
 
@@ -1448,107 +1541,57 @@
     async function findRoute() {
 
         const startText =
-            document.getElementById(
-                "startLocation"
-            ).value.trim();
+            document.getElementById("startLocation").value.trim();
 
         const destinationText =
-            document.getElementById(
-                "destinationLocation"
-            ).value.trim();
+            document.getElementById("destinationLocation").value.trim();
 
+        if (!startText || !destinationText) {
 
-        if (!startText ||
-            !destinationText) {
-
-            alert(
-                "Please enter both start and destination."
-            );
+            alert("Please enter both start and destination.");
 
             return;
 
         }
 
-
         try {
 
             const start =
-                startText ===
-                "My Current Location"
-
+                startText === "My Current Location"
                     ? currentGPSLocation
-
-                    : await geocodeLocation(
-                        startText
-                    );
-
+                    : await geocodeLocation(startText);
 
             if (!start) {
 
-                alert(
-                    "Please start GPS first to use current location."
-                );
+                alert("Please start GPS first to use current location.");
 
                 return;
 
             }
 
+            const destination = await geocodeLocation(destinationText);
 
-            const destination =
-                await geocodeLocation(
-                    destinationText
-                );
+            if (!isTamilNadu(start.lat, start.lon)) {
 
-
-            if (
-                !isTamilNadu(
-                    start.lat,
-                    start.lon
-                )
-            ) {
-
-                alert(
-                    "Start location must be inside Tamil Nadu."
-                );
+                alert("Start location must be inside Tamil Nadu.");
 
                 return;
 
             }
 
+            if (!isTamilNadu(destination.lat, destination.lon)) {
 
-            if (
-                !isTamilNadu(
-                    destination.lat,
-                    destination.lon
-                )
-            ) {
-
-                alert(
-                    "Destination must be inside Tamil Nadu."
-                );
+                alert("Destination must be inside Tamil Nadu.");
 
                 return;
 
             }
 
+            drawStartMarker(start.lat, start.lon);
 
-            drawStartMarker(
-                start.lat,
-                start.lon
-            );
+            drawDestinationMarker(destination.lat, destination.lon);
 
-
-            drawDestinationMarker(
-                destination.lat,
-                destination.lon
-            );
-
-
-            await getOSRMRoutes(
-                start,
-                destination
-            );
-
+            await getOSRMRoutes(start, destination);
 
         }
         catch (error) {
@@ -1556,7 +1599,9 @@
             console.error(error);
 
             alert(
-                "Unable to find route. Please check the location names."
+                "Route failed: " +
+                (error && error.message ? error.message : error) +
+                "\n(Press F12 > Console for details)"
             );
 
         }
@@ -1565,63 +1610,30 @@
 
 
     /* =========================================================
-       START MARKER
+       START / DESTINATION MARKERS
     ========================================================= */
 
-    function drawStartMarker(
-        lat,
-        lon
-    ) {
+    function drawStartMarker(lat, lon) {
 
         if (startMarker) {
-
-            map.removeLayer(
-                startMarker
-            );
-
+            map.removeLayer(startMarker);
         }
 
+        startMarker = L.marker([lat, lon]).addTo(map);
 
-        startMarker =
-            L.marker(
-                [lat, lon]
-            ).addTo(map);
-
-
-        startMarker.bindPopup(
-            "🚗 Start Location"
-        );
+        startMarker.bindPopup("🚗 Start Location");
 
     }
 
-
-    /* =========================================================
-       DESTINATION MARKER
-    ========================================================= */
-
-    function drawDestinationMarker(
-        lat,
-        lon
-    ) {
+    function drawDestinationMarker(lat, lon) {
 
         if (destinationMarker) {
-
-            map.removeLayer(
-                destinationMarker
-            );
-
+            map.removeLayer(destinationMarker);
         }
 
+        destinationMarker = L.marker([lat, lon]).addTo(map);
 
-        destinationMarker =
-            L.marker(
-                [lat, lon]
-            ).addTo(map);
-
-
-        destinationMarker.bindPopup(
-            "🏁 Destination"
-        );
+        destinationMarker.bindPopup("🏁 Destination");
 
     }
 
@@ -1630,376 +1642,104 @@
        OSRM ROUTE
     ========================================================= */
 
-    async function getOSRMRoutes(
-        start,
-        destination
-    ) {
+    async function getOSRMRoutes(start, destination) {
 
         const url =
-
             "https://router.project-osrm.org/route/v1/driving/" +
-
-            start.lon +
-            "," +
-            start.lat +
-
-            ";" +
-
-            destination.lon +
-            "," +
-            destination.lat +
-
+            start.lon + "," + start.lat + ";" +
+            destination.lon + "," + destination.lat +
             "?alternatives=true&overview=full&geometries=geojson";
 
+        let data;
 
-        const response =
-            await fetch(url);
+        try {
 
+            const response = await fetch(url);
 
-        const data =
-            await response.json();
+            data = await response.json();
 
+        }
+        catch (error) {
 
-        if (
-            data.code !== "Ok"
-        ) {
-
-            throw new Error(
-                "Route not found"
-            );
+            throw new Error("Routing service (OSRM) is not reachable.");
 
         }
 
+        if (data.code !== "Ok") {
+
+            throw new Error("Route not found between these places.");
+
+        }
 
         clearRouteLayers();
 
-
-        const routes =
-            data.routes;
-
+        const routes = data.routes;
 
         let analysedRoutes = [];
 
+        for (let i = 0; i < routes.length; i++) {
 
-        for (
-            let i = 0;
-            i < routes.length;
-            i++
-        ) {
+            const route = routes[i];
 
-            const route =
-                routes[i];
+            const coordinates = route.geometry.coordinates.map(
+                point => [point[1], point[0]]
+            );
 
-
-            const coordinates =
-                route.geometry.coordinates.map(
-                    point => [
-                        point[1],
-                        point[0]
-                    ]
-                );
-
-
-            const analysis =
-                await analyzeRoute(
-                    coordinates
-                );
-
+            const analysis = await analyzeRoute(coordinates);
 
             analysedRoutes.push({
-
                 route: route,
-
-                coordinates:
-                    coordinates,
-
-                analysis:
-                    analysis
-
+                coordinates: coordinates,
+                analysis: analysis
             });
 
         }
 
 
-        /* ============================================
-           SORT BY OVERALL RISK
-        ============================================ */
+        /* SORT BY RISK SCORE, then by distance */
 
-        analysedRoutes.sort(
-            function(a, b) {
+        analysedRoutes.sort(function (a, b) {
 
-                const riskDifference =
+            const diff =
+                Math.round(a.analysis.riskScore * 100) -
+                Math.round(b.analysis.riskScore * 100);
 
-                    riskValue[
-                        a.analysis.overall
-                    ] -
-
-                    riskValue[
-                        b.analysis.overall
-                    ];
-
-
-                if (
-                    riskDifference !== 0
-                ) {
-
-                    return riskDifference;
-
-                }
-
-
-                return (
-
-                    a.route.distance -
-
-                    b.route.distance
-
-                );
-
+            if (diff !== 0) {
+                return diff;
             }
-        );
 
+            return a.route.distance - b.route.distance;
+
+        });
 
         routeActive = true;
 
+        drawAllRoutes(analysedRoutes);
 
-        drawAllRoutes(
-            analysedRoutes
-        );
-
-
-        showRouteResult(
-            analysedRoutes
-        );
+        showRouteResult(analysedRoutes);
 
     }
 
 
     /* =========================================================
-       ANALYZE ROUTE
+       ANALYZE ROUTE  (ONE request for the whole route)
     ========================================================= */
 
-    async function analyzeRoute(
-        coordinates
-    ) {
+    async function analyzeRoute(coordinates) {
 
-        let lowKm = 0;
+        const response = await fetch("/api/route-risk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ coordinates: coordinates })
+        });
 
-        let mediumKm = 0;
+        const data = await response.json();
 
-        let highKm = 0;
-
-        let weightedRisk = 0;
-
-        let totalKm = 0;
-
-
-        for (
-            let i = 0;
-            i < coordinates.length - 1;
-            i++
-        ) {
-
-            const p1 =
-                coordinates[i];
-
-            const p2 =
-                coordinates[i + 1];
-
-
-            const distance =
-                calculateDistance(
-                    p1[0],
-                    p1[1],
-                    p2[0],
-                    p2[1]
-                );
-
-
-            if (
-                distance <= 0
-            ) {
-
-                continue;
-
-            }
-
-
-            const midLat =
-                (p1[0] + p2[0]) / 2;
-
-            const midLon =
-                (p1[1] + p2[1]) / 2;
-
-
-            const riskData =
-                await getRiskWithoutPopup(
-                    midLat,
-                    midLon
-                );
-
-
-            const risk =
-                riskData.risk_level;
-
-
-            totalKm +=
-                distance;
-
-
-            weightedRisk +=
-                distance *
-                riskValue[risk];
-
-
-            if (
-                risk === "High"
-            ) {
-
-                highKm +=
-                    distance;
-
-            }
-            else if (
-                risk === "Medium"
-            ) {
-
-                mediumKm +=
-                    distance;
-
-            }
-            else {
-
-                lowKm +=
-                    distance;
-
-            }
-
+        if (data.status !== "success") {
+            throw new Error(data.message || "Route risk analysis failed");
         }
 
-
-        const score =
-            totalKm > 0
-
-                ? weightedRisk / totalKm
-
-                : 1;
-
-
-        let overall =
-            "Low";
-
-
-        if (
-            score >= 2.5
-        ) {
-
-            overall =
-                "High";
-
-        }
-        else if (
-            score >= 1.7
-        ) {
-
-            overall =
-                "Medium";
-
-        }
-
-
-        return {
-
-            lowKm:
-                lowKm,
-
-            mediumKm:
-                mediumKm,
-
-            highKm:
-                highKm,
-
-            totalKm:
-                totalKm,
-
-            riskScore:
-                score,
-
-            overall:
-                overall
-
-        };
-
-    }
-
-
-    /* =========================================================
-       GET RISK WITHOUT POPUP
-    ========================================================= */
-
-    async function getRiskWithoutPopup(
-        lat,
-        lon
-    ) {
-
-        try {
-
-            const response =
-                await fetch(
-                    "/api/predict",
-                    {
-
-                        method: "POST",
-
-                        headers: {
-
-                            "Content-Type":
-                                "application/json"
-
-                        },
-
-                        body:
-                            JSON.stringify({
-
-                                latitude: lat,
-
-                                longitude: lon
-
-                            })
-
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (
-                data.status === "success"
-            ) {
-
-                return data;
-
-            }
-
-        }
-        catch (error) {
-
-            console.log(
-                "Route risk error:",
-                error
-            );
-
-        }
-
-
-        return {
-
-            risk_level:
-                "Low"
-
-        };
+        return data.analysis;
 
     }
 
@@ -2008,81 +1748,36 @@
        DRAW ALL ROUTES
     ========================================================= */
 
-    function drawAllRoutes(
-        routes
-    ) {
+    function drawAllRoutes(routes) {
 
-        routes.forEach(
-            function(item, index) {
+        routes.forEach(function (item, index) {
 
-                const color =
-                    getRiskColor(
-                        item.analysis.overall
-                    );
+            const color = getRiskColor(item.analysis.overall);
 
-
-                const line =
-                    L.polyline(
-                        item.coordinates,
-                        {
-
-                            color:
-                                color,
-
-                            weight:
-                                index === 0
-                                    ? 8
-                                    : 5,
-
-                            opacity:
-                                index === 0
-                                    ? 0.9
-                                    : 0.45
-
-                        }
-                    ).addTo(map);
-
-
-                line.bindPopup(
-
-                    "<strong>Route " +
-                    (index + 1) +
-                    "</strong><br>" +
-
-                    "Risk: " +
-                    item.analysis.overall +
-                    "<br>" +
-
-                    "Distance: " +
-                    item.analysis.totalKm.toFixed(1) +
-                    " km"
-
-                );
-
-
-                routeLayers.push(
-                    line
-                );
-
-            }
-        );
-
-
-        if (
-            routes.length
-        ) {
-
-            const bounds =
-                L.latLngBounds(
-                    routes[0].coordinates
-                );
-
-            map.fitBounds(
-                bounds,
+            const line = L.polyline(
+                item.coordinates,
                 {
-                    padding: [40, 40]
+                    color: color,
+                    weight: index === 0 ? 8 : 5,
+                    opacity: index === 0 ? 0.9 : 0.45
                 }
+            ).addTo(map);
+
+            line.bindPopup(
+                "<strong>Route " + (index + 1) + "</strong><br>" +
+                "Risk: " + item.analysis.overall + "<br>" +
+                "Distance: " + item.analysis.totalKm.toFixed(1) + " km"
             );
+
+            routeLayers.push(line);
+
+        });
+
+        if (routes.length) {
+
+            const bounds = L.latLngBounds(routes[0].coordinates);
+
+            map.fitBounds(bounds, { padding: [40, 40] });
 
         }
 
@@ -2095,15 +1790,9 @@
 
     function clearRouteLayers() {
 
-        routeLayers.forEach(
-            function(layer) {
-
-                map.removeLayer(
-                    layer
-                );
-
-            }
-        );
+        routeLayers.forEach(function (layer) {
+            map.removeLayer(layer);
+        });
 
         routeLayers = [];
 
@@ -2114,317 +1803,290 @@
        ROUTE RESULT CARD
     ========================================================= */
 
-    function showRouteResult(
-        routes
-    ) {
+    function showRouteResult(routes) {
 
-        const container =
-            document.getElementById(
-                "routeResult"
-            );
+        const container = document.getElementById("routeResult");
 
-
-        container.style.display =
-            "block";
-
+        container.style.display = "block";
 
         if (!routes.length) {
 
-            container.innerHTML =
-                "<strong>No route available.</strong>";
+            container.innerHTML = "<strong>No route available.</strong>";
 
             return;
 
         }
 
+        const best = routes[0];
 
-        const best =
-            routes[0];
+        const fastest = routes.reduce(
+            (m, r) => r.analysis.totalKm < m.analysis.totalKm ? r : m,
+            routes[0]
+        );
 
+        const fastestIndex = routes.indexOf(fastest);
 
-        const allSameRisk =
-            routes.every(
-                item =>
-                    item.analysis.overall ===
-                    best.analysis.overall
-            );
+        const reduction =
+            (fastest.analysis.riskScore - best.analysis.riskScore) /
+            fastest.analysis.riskScore * 100;
 
+        const extraKm =
+            best.analysis.totalKm - fastest.analysis.totalKm;
 
         let recommendation = "";
 
-
-        if (
-            routes.length === 1
-        ) {
+        if (routes.length === 1) {
 
             recommendation =
-
-                "⚠️ No alternative route available.";
+                "ℹ️ Only one route is available. Follow the safety tips below.";
 
         }
-        else if (
-            allSameRisk
-        ) {
+        else if (best === fastest) {
 
             recommendation =
+                "✅ <strong>Route 1</strong> is both the shortest and the " +
+                "lowest-risk route. Recommended.";
 
-                "⚠️ No safer route available. " +
+        }
+        else if (reduction >= 1.5) {
 
-                "All available routes have the same overall risk. " +
-
-                "The shorter route is preferred.";
+            recommendation =
+                "✅ <strong>Route 1 is the safer choice:</strong> about " +
+                reduction.toFixed(1) + "% lower risk than the shortest route " +
+                "(Route " + (fastestIndex + 1) + "), for " +
+                extraKm.toFixed(1) + " km extra distance.";
 
         }
         else {
 
             recommendation =
-
-                "🛡️ Lower-risk route recommended.";
+                "ℹ️ All routes have almost the same risk. " +
+                "The shortest route (Route " + (fastestIndex + 1) +
+                ") is fine.";
 
         }
 
-
         let html =
+            "<div class='route-title'>🛡️ Route Recommendation</div>" +
+            "<div class='mb-3'>" + recommendation + "</div>" +
+            "<div class='mb-2' style='font-size:13px'>" +
+            "<strong>Safety tips:</strong>" +
+            "<ul style='margin:4px 0 0 18px;padding:0'>" +
+            (best.analysis.tips || []).map(
+                x => "<li>" + esc(x) + "</li>"
+            ).join("") +
+            "</ul></div>";
 
-            "<div class='route-title'>" +
+        routes.forEach(function (item, index) {
 
-            "🛡️ Route Recommendation" +
+            const analysis = item.analysis;
+            const total = analysis.totalKm;
 
-            "</div>" +
+            const lowPercent = total > 0 ? analysis.lowKm / total * 100 : 0;
+            const mediumPercent = total > 0 ? analysis.mediumKm / total * 100 : 0;
+            const highPercent = total > 0 ? analysis.highKm / total * 100 : 0;
 
-            "<div class='mb-3'>" +
+            html +=
+                "<div style='border-top:1px solid #ddd;padding-top:12px;margin-top:12px;'>" +
 
-            recommendation +
+                "<strong>Route " + (index + 1) + "</strong>" +
 
-            "</div>";
+                (index === 0 && routes.length > 1 ? " ✅ Recommended" : "") +
 
+                " — " +
 
-        routes.forEach(
-            function(item, index) {
+                "<span style='color:" + getRiskColor(analysis.overall) +
+                ";font-weight:bold'>" + analysis.overall + "</span>" +
 
-                const analysis =
-                    item.analysis;
+                "<br>Distance: " + analysis.totalKm.toFixed(1) + " km" +
 
+                "<br>Risk Score: " + analysis.riskScore.toFixed(2) +
 
-                const total =
-                    analysis.totalKm;
+                "<br>🟢 Low: " + analysis.lowKm.toFixed(1) + " km" +
+                " | 🟠 Medium: " + analysis.mediumKm.toFixed(1) + " km" +
+                " | 🔴 High: " + analysis.highKm.toFixed(1) + " km" +
 
+                "<div class='risk-bar'>" +
+                "<div class='risk-low-bar' style='width:" + lowPercent + "%'></div>" +
+                "<div class='risk-medium-bar' style='width:" + mediumPercent + "%'></div>" +
+                "<div class='risk-high-bar' style='width:" + highPercent + "%'></div>" +
+                "</div>" +
 
-                const lowPercent =
-                    total > 0
-                        ? analysis.lowKm / total * 100
-                        : 0;
+                "</div>";
 
-
-                const mediumPercent =
-                    total > 0
-                        ? analysis.mediumKm / total * 100
-                        : 0;
-
-
-                const highPercent =
-                    total > 0
-                        ? analysis.highKm / total * 100
-                        : 0;
-
-
-                html +=
-
-                    "<div style='border-top:1px solid #ddd;padding-top:12px;margin-top:12px;'>" +
-
-                    "<strong>Route " +
-                    (index + 1) +
-                    "</strong>" +
-
-                    " — " +
-
-                    "<span style='color:" +
-                    getRiskColor(
-                        analysis.overall
-                    ) +
-                    ";font-weight:bold'>" +
-
-                    analysis.overall +
-
-                    "</span>" +
-
-                    "<br>" +
-
-                    "Distance: " +
-                    analysis.totalKm.toFixed(1) +
-                    " km" +
-
-                    "<br>" +
-
-                    "Risk Score: " +
-                    analysis.riskScore.toFixed(2) +
-
-                    "<br>" +
-
-                    "🟢 Low: " +
-                    analysis.lowKm.toFixed(1) +
-                    " km" +
-
-                    " | " +
-
-                    "🟠 Medium: " +
-                    analysis.mediumKm.toFixed(1) +
-                    " km" +
-
-                    " | " +
-
-                    "🔴 High: " +
-                    analysis.highKm.toFixed(1) +
-                    " km" +
-
-                    "<div class='risk-bar'>" +
-
-                    "<div class='risk-low-bar' style='width:" +
-                    lowPercent +
-                    "%'></div>" +
-
-                    "<div class='risk-medium-bar' style='width:" +
-                    mediumPercent +
-                    "%'></div>" +
-
-                    "<div class='risk-high-bar' style='width:" +
-                    highPercent +
-                    "%'></div>" +
-
-                    "</div>" +
-
-                    "</div>";
-
-            }
-        );
-
+        });
 
         html +=
-
             "<div class='mt-3' style='font-size:12px;color:#777;'>" +
-
             "Route risk is currently calculated using district-level accident data." +
-
             "</div>";
 
-
-        container.innerHTML =
-            html;
+        container.innerHTML = html;
 
     }
 
 
     /* =========================================================
        MAP CLICK
-       ========================================================= */
+    ========================================================= */
 
-    map.on(
-        "click",
-        async function(e) {
+    map.on("click", async function (e) {
 
-            const lat =
-                e.latlng.lat;
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
 
-            const lon =
-                e.latlng.lng;
+        if (!isTamilNadu(lat, lon)) {
+
+            alert("Please select a location inside Tamil Nadu.");
+
+            return;
+
+        }
+
+        // Save the selected point so Predict Risk can use it.
+        selectedMapLocation = { lat: lat, lon: lon };
+        selectedPlaceInfo = null;
+
+        if (selectedMapMarker) {
+            map.removeLayer(selectedMapMarker);
+        }
+
+        selectedMapMarker = L.marker([lat, lon], {
+            title: "Selected location"
+        }).addTo(map);
+
+        selectedMapMarker.bindPopup("Selected location for risk prediction");
+
+        const info = await reverseGeocodeLocation(lat, lon);
+
+        // ignore the answer if the user has already clicked somewhere else
+        if (
+            !selectedMapLocation ||
+            selectedMapLocation.lat !== lat ||
+            selectedMapLocation.lon !== lon
+        ) {
+            return;
+        }
+
+        selectedPlaceInfo = info;
+
+        L.popup()
+            .setLatLng(e.latlng)
+            .setContent(
+                "<strong>Area / Place:</strong> " + esc(info.area) +
+                "<br><strong>District:</strong> " + esc(info.district) +
+                "<br><strong>Latitude:</strong> " + lat.toFixed(6) +
+                "<br><strong>Longitude:</strong> " + lon.toFixed(6)
+            )
+            .openOn(map);
+
+    });
 
 
-            if (
-                !isTamilNadu(
-                    lat,
-                    lon
-                )
-            ) {
+    /* =========================================================
+       LIVE TRAFFIC INCIDENTS (TomTom, optional)
+       Needs TOMTOM_API_KEY in .env. Without a key the map just
+       works without incidents - no error spam.
+    ========================================================= */
 
-                alert(
-                    "Please select a location inside Tamil Nadu."
-                );
+    const incidentLayer = L.layerGroup().addTo(map);
+
+    async function loadLiveIncidents() {
+
+        if (incidentsDisabled) return;
+
+        if (map.getZoom() < 9) {
+            incidentLayer.clearLayers();
+            return;
+        }
+
+        const bounds = map.getBounds();
+
+        const west = Math.max(bounds.getWest(), 76);
+        const south = Math.max(bounds.getSouth(), 8);
+        const east = Math.min(bounds.getEast(), 81);
+        const north = Math.min(bounds.getNorth(), 14);
+
+        if (west >= east || south >= north) return;
+
+        try {
+
+            const response = await fetch(
+                "/api/incidents?" +
+                new URLSearchParams({ west: west, south: south, east: east, north: north })
+            );
+
+            const result = await response.json();
+
+            if (!response.ok || result.status !== "success") {
+
+                // no key / TomTom refused: stop asking
+                if (response.status === 503) {
+                    incidentsDisabled = true;
+                }
+
+                console.log("Live incidents unavailable:", result.message);
 
                 return;
 
             }
 
+            incidentLayer.clearLayers();
 
-            try {
+            result.incidents.forEach(function (item) {
 
-                const url =
+                const geometry = item.geometry || {};
 
-                    "https://nominatim.openstreetmap.org/reverse?" +
+                let c = geometry.coordinates;
 
-                    new URLSearchParams({
+                if (!c || !c.length) return;
 
-                        lat: lat,
+                if (geometry.type === "LineString") c = c[0];
 
-                        lon: lon,
+                const lon = Number(c[0]);
+                const lat = Number(c[1]);
 
-                        format: "json",
+                if (!isFinite(lat) || !isFinite(lon)) return;
 
-                        zoom: 18,
+                const props = item.properties || {};
 
-                        addressdetails: 1
+                const text =
+                    (props.events && props.events[0] &&
+                     props.events[0].description) || "Traffic incident";
 
-                    });
+                L.circleMarker(
+                    [lat, lon],
+                    {
+                        radius: 5,
+                        color: "#6f42c1",
+                        fillColor: "#6f42c1",
+                        fillOpacity: 0.8,
+                        weight: 1
+                    }
+                )
+                    .bindPopup("🚧 " + esc(text))
+                    .addTo(incidentLayer);
 
-
-                const response =
-                    await fetch(
-                        url
-                    );
-
-
-                const data =
-                    await response.json();
-
-
-                const area =
-                    getAreaName(
-                        data.address || {}
-                    );
-
-
-                const district =
-                    getDistrictName(
-                        data.address || {}
-                    );
-
-
-                L.popup()
-                    .setLatLng(
-                        e.latlng
-                    )
-                    .setContent(
-
-                        "<strong>Location:</strong> " +
-                        area +
-
-                        "<br>" +
-
-                        "<strong>District:</strong> " +
-                        district +
-
-                        "<br>" +
-
-                        "<strong>Latitude:</strong> " +
-                        lat.toFixed(6) +
-
-                        "<br>" +
-
-                        "<strong>Longitude:</strong> " +
-                        lon.toFixed(6)
-
-                    )
-                    .openOn(map);
-
-            }
-            catch (error) {
-
-                console.log(error);
-
-            }
+            });
 
         }
-    );
+        catch (error) {
 
+            console.log("Live incidents error:", error);
+
+        }
+
+    }
+
+    map.on("moveend", function () {
+
+        clearTimeout(incidentTimer);
+
+        incidentTimer = setTimeout(loadLiveIncidents, 700);
+
+    });
+
+    map.whenReady(loadLiveIncidents);
 
 </script>
 

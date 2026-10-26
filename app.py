@@ -1,1345 +1,1041 @@
-from flask import Flask, render_template, jsonify, request
-import joblib
-import pandas as pd
+"""Accident Hotspot Prediction - Flask backend."""
 import os
+import re
+import time
+
+import joblib
+import numpy as np
+import pandas as pd
 import requests
 from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
 
+from features import build_features, label_from_score, risk_score
 
-# =========================================================
-# FLASK APP
-# =========================================================
-
-app = Flask(
-    __name__,
-    template_folder="templates"
-)
-
-
-# =========================================================
-# ENVIRONMENT VARIABLES
-# =========================================================
+# ------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------
 
 load_dotenv()
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TOMTOM_API_KEY = os.getenv("TOMTOM_API_KEY")
 
+app = Flask(__name__, template_folder="templates")
 
-# =========================================================
-# BASE DIRECTORY
-# =========================================================
+print("TomTom key loaded:", bool(TOMTOM_API_KEY))
 
-BASE_DIR = os.path.dirname(
-    os.path.abspath(__file__)
-)
-
-
-# =========================================================
-# FILE PATHS
-# =========================================================
-
-OLD_MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "model",
-    "accident_lightgbm_model.pkl"
-)
-
-WEATHER_MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "model",
-    "accident_weather_model.pkl"
-)
-
-WEATHER_ENCODER_PATH = os.path.join(
-    BASE_DIR,
-    "model",
-    "weather_risk_label_encoder.pkl"
-)
-
+MODEL_PATH = os.path.join(BASE_DIR, "model", "accident_risk_model.pkl")
 DATA_PATH = os.path.join(
-    BASE_DIR,
-    "data",
-    "preprocessed_tamil_nadu_accidents.csv"
+    BASE_DIR, "data", "preprocessed_tamil_nadu_accidents.csv"
 )
+EXTRA_PATH = os.path.join(BASE_DIR, "data", "extra_districts.csv")
+AREAS_PATH = os.path.join(BASE_DIR, "data", "tamil_nadu_area_locations.csv")
 
+# ------------------------------------------------------------
+# Load model and accident dataset
+# ------------------------------------------------------------
 
-# =========================================================
-# LOAD OLD MODEL
-# Used for dashboard
-# =========================================================
+print("Loading accident risk model...")
 
-print("\nLoading LightGBM model...")
+if not os.path.exists(MODEL_PATH):
+    raise SystemExit(f"Model file not found: {MODEL_PATH}")
 
-model = joblib.load(
-    OLD_MODEL_PATH
-)
+if not os.path.exists(DATA_PATH):
+    raise SystemExit(f"Accident dataset not found: {DATA_PATH}")
 
-print("LightGBM model loaded successfully!")
+bundle = joblib.load(MODEL_PATH)
 
+if not isinstance(bundle, dict) or "model" not in bundle or "classes" not in bundle:
+    raise SystemExit("Model file must contain 'model' and 'classes'.")
 
-# =========================================================
-# LOAD WEATHER-AWARE MODEL
-# Used for real-time prediction
-# =========================================================
+model = bundle["model"]
+CLASSES = list(bundle["classes"])
 
-print("\nLoading weather-aware model...")
+districts = pd.read_csv(DATA_PATH)
 
-weather_model = joblib.load(
-    WEATHER_MODEL_PATH
-)
-
-weather_encoder = joblib.load(
-    WEATHER_ENCODER_PATH
-)
-
-print(
-    "Weather-aware model loaded successfully!"
-)
-
-
-# =========================================================
-# LOAD ACCIDENT DATA
-# =========================================================
-
-print("\nLoading Tamil Nadu accident dataset...")
-
-accident_data = pd.read_csv(
-    DATA_PATH
-)
-
-print(
-    "Accident dataset shape:",
-    accident_data.shape
-)
-
-print(
-    "Accident dataset columns:",
-    accident_data.columns.tolist()
-)
-
-
-# =========================================================
-# OLD MODEL FEATURES
-# =========================================================
-
-FEATURES = [
-    "2020_fatal",
-    "2021_fatal",
-    "2020_nonfatal",
-    "2021_nonfatal",
-    "total__2020",
-    "total__2021",
-    "accident_change",
-    "accident_change_percent",
-    "latitude",
-    "longitude"
+required_columns = [
+    "district", "latitude", "longitude", "coordinate_status",
+    "2021_fatal", "total__2021", "total__2020", "2020_fatal",
+    "2020_nonfatal", "2021_nonfatal", "accident_change",
+    "accident_change_percent"
 ]
+missing_columns = [c for c in required_columns if c not in districts.columns]
 
+if missing_columns:
+    raise SystemExit(f"Dataset missing columns: {missing_columns}")
 
-# =========================================================
-# WEATHER MODEL FEATURES
-# =========================================================
+districts = districts[
+    districts["coordinate_status"].astype(str).str.strip().str.lower() == "valid"
+].copy()
 
-WEATHER_FEATURES = [
-    "2020_fatal",
-    "2021_fatal",
-    "2020_nonfatal",
-    "2021_nonfatal",
-    "total__2020",
-    "total__2021",
-    "accident_change",
-    "accident_change_percent",
-    "latitude",
-    "longitude",
-    "avg_temperature",
-    "total_precipitation",
-    "avg_wind_speed"
-]
+districts = districts.dropna(
+    subset=["latitude", "longitude", "total__2021", "2021_fatal"]
+).reset_index(drop=True)
 
+if districts.empty:
+    raise SystemExit("No valid district rows found in the accident dataset.")
 
-# =========================================================
-# CHECK DATA FEATURES
-# =========================================================
+X_now = build_features(districts, "2021_fatal", "total__2021")
+proba = model.predict_proba(X_now)
 
-missing_features = [
-    feature
-    for feature in FEATURES
-    if feature not in accident_data.columns
-]
+districts["base_idx"] = proba.argmax(axis=1)
+districts["base_conf"] = proba.max(axis=1) * 100
+districts["observed_idx"] = label_from_score(
+    risk_score(districts["total__2021"])
+).values
 
-if missing_features:
-
-    raise ValueError(
-        "Missing model features in dataset: "
-        + str(missing_features)
-    )
-
-print(
-    "All accident model features are available."
+districts["ev"] = proba @ np.array([1.0, 2.0, 3.0])
+districts["severity"] = (
+    0.5 * districts["ev"]
+    + 0.5 * (1 + 2 * risk_score(districts["total__2021"]) / 100)
 )
 
+D_EV = districts["severity"].to_numpy(dtype=float)
+D_LAT = districts["latitude"].to_numpy(dtype=float)
+D_LON = districts["longitude"].to_numpy(dtype=float)
 
-# =========================================================
-# HOME
-# =========================================================
+print("Accident risk model loaded successfully!")
+print("Valid district records:", len(districts))
 
-@app.route("/")
-def home():
+# ------------------------------------------------------------
+# Helper functions
+# ------------------------------------------------------------
 
-    return render_template(
-        "landing.html"
+def haversine_km(lat1, lon1, lat2, lon2):
+    lat1, lon1, lat2, lon2 = map(
+        np.radians, (lat1, lon1, lat2, lon2)
     )
-
-
-# =========================================================
-# BACKEND TEST
-# =========================================================
-
-@app.route("/api/test")
-def test_backend():
-
-    return jsonify({
-
-        "status": "success",
-
-        "message":
-            "Accident Hotspot Backend is connected!"
-
-    })
-
-
-# =========================================================
-# LIVE WEATHER API
-# OPEN-METEO
-# =========================================================
-
-@app.route("/api/weather")
-def get_weather():
-
-    latitude = request.args.get(
-        "latitude",
-        type=float
+    a = (
+        np.sin((lat2 - lat1) / 2) ** 2
+        + np.cos(lat1) * np.cos(lat2)
+        * np.sin((lon2 - lon1) / 2) ** 2
     )
+    return 6371.0 * 2 * np.arcsin(np.sqrt(np.clip(a, 0, 1)))
 
-    longitude = request.args.get(
-        "longitude",
-        type=float
+
+def nearest_district_idx(lats, lons):
+    lats, lons = np.atleast_1d(lats), np.atleast_1d(lons)
+    distances = haversine_km(
+        lats[:, None], lons[:, None],
+        D_LAT[None, :], D_LON[None, :]
     )
-
-    if (
-        latitude is None
-        or longitude is None
-    ):
-
-        return jsonify({
-
-            "status": "error",
-
-            "message":
-                "Latitude and longitude are required."
-
-        }), 400
+    return distances.argmin(axis=1)
 
 
-    url = (
-        "https://api.open-meteo.com/"
-        "v1/forecast"
+def idw_risk(lats, lons, k=3):
+    """Estimate continuous risk from the nearest district centres."""
+    lats, lons = np.atleast_1d(lats), np.atleast_1d(lons)
+    distances = haversine_km(
+        lats[:, None], lons[:, None],
+        D_LAT[None, :], D_LON[None, :]
     )
+    k = min(k, len(D_EV))
+    indices = np.argpartition(distances, k - 1, axis=1)[:, :k]
+    nearest_distances = np.take_along_axis(distances, indices, axis=1)
+    weights = 1.0 / np.maximum(nearest_distances, 1.0) ** 2
+    values = (weights * D_EV[indices]).sum(axis=1) / weights.sum(axis=1)
+    return values, distances.argmin(axis=1)
 
 
-    params = {
+def in_tamil_nadu(lat, lon):
+    return 8 <= lat <= 13.6 and 76 <= lon <= 80.4
 
-        "latitude": latitude,
 
-        "longitude": longitude,
+def in_region(lat, lon):
+    """Wider box used for routes: a road between two Tamil Nadu places can
+    briefly cross the state border (Hosur, Gudalur, north of Chennai ...)."""
+    return 7 <= lat <= 15 and 75 <= lon <= 82
 
-        "current": (
-            "temperature_2m,"
-            "relative_humidity_2m,"
-            "precipitation,"
-            "rain,"
-            "wind_speed_10m,"
-            "weather_code"
-        ),
 
-        "timezone": "auto"
-    }
+_weather_cache = {}
 
+
+def get_weather(lat, lon):
+    """Fetch current weather; cache for 10 minutes per approximate grid cell."""
+    key = (round(lat, 1), round(lon, 1))
+    cached = _weather_cache.get(key)
+
+    if cached and time.time() - cached[0] < 600:
+        return cached[1]
 
     try:
-
         response = requests.get(
-            url,
-            params=params,
-            timeout=15
-        )
-
-        response.raise_for_status()
-
-        weather_data = response.json()
-
-
-        return jsonify({
-
-            "status": "success",
-
-            "location": {
-
-                "latitude": latitude,
-
-                "longitude": longitude
-
-            },
-
-            "weather":
-                weather_data.get(
-                    "current",
-                    {}
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "timezone": "auto",
+                "current": (
+                    "temperature_2m,precipitation,"
+                    "wind_speed_10m,weather_code"
                 )
-
-        })
-
-
-    except Exception as e:
-
-        return jsonify({
-
-            "status": "error",
-
-            "message": str(e)
-
-        }), 500
-
-
-# =========================================================
-# LIVE TRAFFIC API
-# TOMTOM
-# =========================================================
-
-@app.route("/api/traffic")
-def get_traffic():
-
-    latitude = request.args.get(
-        "latitude",
-        type=float
-    )
-
-    longitude = request.args.get(
-        "longitude",
-        type=float
-    )
-
-
-    if (
-        latitude is None
-        or longitude is None
-    ):
-
-        return jsonify({
-
-            "status": "error",
-
-            "message":
-                "Latitude and longitude are required."
-
-        }), 400
-
-
-    if not TOMTOM_API_KEY:
-
-        return jsonify({
-
-            "status": "error",
-
-            "message":
-                "TomTom API key is not configured."
-
-        }), 500
-
-
-    url = (
-        "https://api.tomtom.com/"
-        "traffic/services/4/"
-        "flowSegmentData/"
-        "absolute/10/json"
-    )
-
-
-    params = {
-
-        "point":
-            f"{latitude},{longitude}",
-
-        "key":
-            TOMTOM_API_KEY
-
-    }
-
-
-    try:
-
-        response = requests.get(
-            url,
-            params=params,
+            },
             timeout=10
         )
-
-
-        if response.status_code != 200:
-
-            return jsonify({
-
-                "status": "error",
-
-                "message":
-                    "TomTom API request failed.",
-
-                "code":
-                    response.status_code,
-
-                "details":
-                    response.text
-
-            }), response.status_code
-
-
-        traffic_data = response.json()
-
-
-        return jsonify({
-
-            "status": "success",
-
-            "location": {
-
-                "latitude":
-                    latitude,
-
-                "longitude":
-                    longitude
-
-            },
-
-            "traffic":
-                traffic_data
-
-        })
-
-
-    except Exception as e:
-
-        return jsonify({
-
-            "status": "error",
-
-            "message": str(e)
-
-        }), 500
-
-
-# =========================================================
-# REAL-TIME ACCIDENT RISK PREDICTION
-# WEATHER-AWARE LIGHTGBM
-# =========================================================
-
-@app.route(
-    "/api/predict",
-    methods=["POST"]
-)
-def predict():
-
-    try:
-
-        data = request.get_json()
-
-
-        # -------------------------------------------------
-        # CHECK JSON
-        # -------------------------------------------------
-
-        if data is None:
-
-            return jsonify({
-
-                "status": "error",
-
-                "message":
-                    "No JSON data received."
-
-            }), 400
-
-
-        # -------------------------------------------------
-        # GET LOCATION
-        # -------------------------------------------------
-
-        location = data.get(
-            "location",
-            "Selected Tamil Nadu Location"
-        )
-
-        latitude = data.get(
-            "latitude"
-        )
-
-        longitude = data.get(
-            "longitude"
-        )
-
-
-        # -------------------------------------------------
-        # VALIDATE COORDINATES
-        # -------------------------------------------------
-
-        if (
-            latitude is None
-            or longitude is None
-        ):
-
-            return jsonify({
-
-                "status": "error",
-
-                "message":
-                    "Latitude and longitude are required."
-
-            }), 400
-
-
-        latitude = float(
-            latitude
-        )
-
-        longitude = float(
-            longitude
-        )
-
-
-        # -------------------------------------------------
-        # TAMIL NADU BOUNDARY CHECK
-        # -------------------------------------------------
-
-        if not (
-            8 <= latitude <= 14
-            and
-            76 <= longitude <= 81
-        ):
-
-            return jsonify({
-
-                "status": "error",
-
-                "message":
-                    "Location is outside Tamil Nadu."
-
-            }), 400
-
-
-        # -------------------------------------------------
-        # FIND NEAREST HISTORICAL DISTRICT
-        # -------------------------------------------------
-
-        temp_data = accident_data.copy()
-
-
-        temp_data = temp_data[
-            temp_data["coordinate_status"]
-            == "Valid"
-        ].copy()
-
-
-        temp_data["distance"] = (
-
-            (
-                temp_data["latitude"]
-                - latitude
-            ) ** 2
-
-            +
-
-            (
-                temp_data["longitude"]
-                - longitude
-            ) ** 2
-
-        )
-
-
-        nearest_index = (
-            temp_data["distance"]
-            .idxmin()
-        )
-
-
-        row = temp_data.loc[
-            nearest_index
-        ]
-
-
-        district = str(
-            row["district"]
-        )
-
-
-        # -------------------------------------------------
-        # CURRENT WEATHER
-        # OPEN-METEO
-        # -------------------------------------------------
-
-        weather_url = (
-            "https://api.open-meteo.com/"
-            "v1/forecast"
-        )
-
-
-        weather_params = {
-
-            "latitude":
-                latitude,
-
-            "longitude":
-                longitude,
-
-            "current": [
-                "temperature_2m",
-                "precipitation",
-                "wind_speed_10m"
-            ],
-
-            "timezone": "auto"
+        response.raise_for_status()
+        current = response.json()["current"]
+
+        weather = {
+            "temperature": float(current["temperature_2m"]),
+            "precipitation": float(current["precipitation"]),
+            "wind_speed": float(current["wind_speed_10m"]),
+            "weather_code": int(current.get("weather_code", 0))
         }
+    except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+        print("Weather error:", error)
+        weather = None
 
+    _weather_cache[key] = (time.time(), weather)
+    return weather
 
-        weather_response = requests.get(
-            weather_url,
-            params=weather_params,
-            timeout=15
-        )
 
+HEAVY_RAIN_CODES = {65, 67, 82, 95, 96, 99}
+FOG_CODES = {45, 48}
 
-        weather_response.raise_for_status()
 
+def weather_severity(weather):
+    if not weather:
+        return 0, []
 
-        weather_data = (
-            weather_response.json()
-        )
+    reasons = []
 
+    if (
+        weather["precipitation"] >= 2.5
+        or weather["weather_code"] in HEAVY_RAIN_CODES
+    ):
+        reasons.append("Heavy rain / thunderstorm - slippery road")
 
-        current_weather = (
-            weather_data["current"]
-        )
+    if weather["weather_code"] in FOG_CODES:
+        reasons.append("Fog - low visibility")
 
+    if weather["wind_speed"] >= 40:
+        reasons.append("Strong wind")
 
-        temperature = float(
-            current_weather[
-                "temperature_2m"
-            ]
-        )
+    if reasons:
+        return 1, reasons
 
+    if weather["precipitation"] > 0:
+        return 0, ["Light rain - wet road"]
 
-        precipitation = float(
-            current_weather[
-                "precipitation"
-            ]
-        )
+    return 0, []
 
 
-        wind_speed = float(
-            current_weather[
-                "wind_speed_10m"
-            ]
-        )
+def weather_adjust(index, weather):
+    bump, reasons = weather_severity(weather)
+    return min(2, index + bump), reasons
 
 
-        # -------------------------------------------------
-        # CREATE WEATHER MODEL INPUT
-        # -------------------------------------------------
+def recommendations(level, reasons):
+    tips = {
+        "Low": [
+            "Normal driving conditions - follow speed limits and wear a seatbelt/helmet."
+        ],
+        "Medium": [
+            "Reduce speed and keep a safe following distance.",
+            "Stay alert at junctions and near bus stops."
+        ],
+        "High": [
+            "High-risk zone - drive slowly and avoid overtaking.",
+            "Avoid night travel here if an alternative route exists.",
+            "Prefer the safer alternative route suggested on the map."
+        ]
+    }.get(level, ["Drive carefully and follow road safety rules."]).copy()
 
-        input_data = pd.DataFrame([{
+    for reason in reasons:
+        if "rain" in reason.lower():
+            tips.append("Wet road: brake early and double your following distance.")
+        if "fog" in reason.lower():
+            tips.append("Use fog lamps/low beam and slow down.")
+        if "wind" in reason.lower():
+            tips.append("Hold the steering firmly, especially two-wheelers.")
 
-            "2020_fatal":
-                float(
-                    row["2020_fatal"]
-                ),
+    return tips
 
-            "2021_fatal":
-                float(
-                    row["2021_fatal"]
-                ),
 
-            "2020_nonfatal":
-                float(
-                    row["2020_nonfatal"]
-                ),
+def level_from_value(value):
+    return "Low" if value < 1.5 else "Medium" if value < 2.5 else "High"
 
-            "2021_nonfatal":
-                float(
-                    row["2021_nonfatal"]
-                ),
 
-            "total__2020":
-                float(
-                    row["total__2020"]
-                ),
-
-            "total__2021":
-                float(
-                    row["total__2021"]
-                ),
-
-            "accident_change":
-                float(
-                    row["accident_change"]
-                ),
-
-            "accident_change_percent":
-                float(
-                    row[
-                        "accident_change_percent"
-                    ]
-                ),
-
-            "latitude":
-                latitude,
-
-            "longitude":
-                longitude,
-
-            "avg_temperature":
-                temperature,
-
-            "total_precipitation":
-                precipitation,
-
-            "avg_wind_speed":
-                wind_speed
-
-        }])
-
-
-        # -------------------------------------------------
-        # WEATHER-AWARE PREDICTION
-        # -------------------------------------------------
-
-        prediction = (
-            weather_model.predict(
-                input_data[
-                    WEATHER_FEATURES
-                ]
-            )
-        )
-
-
-        risk_level = (
-            weather_encoder
-            .inverse_transform(
-                prediction
-            )[0]
-        )
-
-
-        # -------------------------------------------------
-        # MODEL CONFIDENCE
-        # -------------------------------------------------
-
-        probabilities = (
-            weather_model
-            .predict_proba(
-                input_data[
-                    WEATHER_FEATURES
-                ]
-            )[0]
-        )
-
-
-        confidence = round(
-
-            float(
-                probabilities.max()
-            ) * 100,
-
-            2
-
-        )
-
-
-        # -------------------------------------------------
-        # DEBUG
-        # -------------------------------------------------
-
-        print(
-            "\n=========================================="
-        )
-
-        print(
-            "REAL-TIME RISK PREDICTION"
-        )
-
-        print(
-            "=========================================="
-        )
-
-        print(
-            "Location:",
-            location
-        )
-
-        print(
-            "District:",
-            district
-        )
-
-        print(
-            "Latitude:",
-            latitude
-        )
-
-        print(
-            "Longitude:",
-            longitude
-        )
-
-        print(
-            "Temperature:",
-            temperature
-        )
-
-        print(
-            "Precipitation:",
-            precipitation
-        )
-
-        print(
-            "Wind Speed:",
-            wind_speed
-        )
-
-        print(
-            "Risk:",
-            risk_level
-        )
-
-        print(
-            "Confidence:",
-            confidence
-        )
-
-        print(
-            "==========================================\n"
-        )
-
-
-        # -------------------------------------------------
-        # RESPONSE
-        # -------------------------------------------------
-
-        return jsonify({
-
-            "status":
-                "success",
-
-            "location":
-                location,
-
-            "district":
-                district,
-
-            "latitude":
-                latitude,
-
-            "longitude":
-                longitude,
-
-            "risk_level":
-                str(
-                    risk_level
-                ),
-
-            "confidence":
-                confidence,
-
-            "weather": {
-
-                "temperature":
-                    temperature,
-
-                "precipitation":
-                    precipitation,
-
-                "wind_speed":
-                    wind_speed
-
-            },
-
-            "nearest_location": {
-
-                "latitude":
-                    float(
-                        row["latitude"]
-                    ),
-
-                "longitude":
-                    float(
-                        row["longitude"]
-                    )
-
-            },
-
-            "accident_data": {
-
-                "total_2020":
-                    float(
-                        row["total__2020"]
-                    ),
-
-                "total_2021":
-                    float(
-                        row["total__2021"]
-                    ),
-
-                "fatal_2020":
-                    float(
-                        row["2020_fatal"]
-                    ),
-
-                "fatal_2021":
-                    float(
-                        row["2021_fatal"]
-                    ),
-
-                "nonfatal_2020":
-                    float(
-                        row["2020_nonfatal"]
-                    ),
-
-                "nonfatal_2021":
-                    float(
-                        row["2021_nonfatal"]
-                    ),
-
-                "accident_change":
-                    float(
-                        row["accident_change"]
-                    ),
-
-                "accident_change_percent":
-                    float(
-                        row[
-                            "accident_change_percent"
-                        ]
-                    )
-
-            }
-
-        })
-
-
-    except Exception as e:
-
-        print(
-            "Prediction error:",
-            str(e)
-        )
-
-
-        return jsonify({
-
-            "status":
-                "error",
-
-            "message":
-                str(e)
-
-        }), 500
-
-
-# =========================================================
-# DASHBOARD API
-# =========================================================
-
-@app.route(
-    "/api/dashboard-data"
-)
-def dashboard_data():
-
+def safe_float(value):
     try:
+        return float(value) if pd.notna(value) else None
+    except (TypeError, ValueError):
+        return None
 
-        df = accident_data.copy()
 
+def clip_bbox(west, south, east, north, max_km2=9000.0):
+    """TomTom accepts at most 10,000 km2 per incident request.
+    If the map view is bigger, use the centre part of it."""
+    mid_lat = (south + north) / 2
+    width_km = (east - west) * 111.32 * np.cos(np.radians(mid_lat))
+    height_km = (north - south) * 110.57
+    area = width_km * height_km
 
-        # -------------------------------------------------
-        # TOTAL ACCIDENTS
-        # -------------------------------------------------
+    if area <= max_km2:
+        return west, south, east, north, False
 
-        total_2020 = int(
-            df["total__2020"].sum()
-        )
+    scale = (max_km2 / area) ** 0.5
+    cx, cy = (west + east) / 2, mid_lat
+    half_w, half_h = (east - west) / 2 * scale, (north - south) / 2 * scale
+    return cx - half_w, cy - half_h, cx + half_w, cy + half_h, True
 
-        total_2021 = int(
-            df["total__2021"].sum()
-        )
 
+# ------------------------------------------------------------
+# Website pages
+# ------------------------------------------------------------
 
-        # -------------------------------------------------
-        # DISTRICT COUNT
-        # -------------------------------------------------
-
-        district_count = len(df)
-
-
-        # -------------------------------------------------
-        # OLD MODEL PREDICTIONS
-        # -------------------------------------------------
-
-        X = df[FEATURES]
-
-        predictions = model.predict(
-            X
-        )
-
-
-        risk_levels = []
-
-
-        for prediction in predictions:
-
-            if isinstance(
-                prediction,
-                str
-            ):
-
-                risk = prediction
-
-            else:
-
-                prediction = int(
-                    prediction
-                )
-
-                if prediction == 0:
-                    risk = "Low"
-
-                elif prediction == 1:
-                    risk = "Medium"
-
-                elif prediction == 2:
-                    risk = "High"
-
-                else:
-                    risk = "Unknown"
-
-
-            risk_levels.append(
-                risk
-            )
-
-
-        df["risk_level"] = (
-            risk_levels
-        )
-
-
-        # -------------------------------------------------
-        # RISK COUNTS
-        # -------------------------------------------------
-
-        low_count = int(
-            (
-                df["risk_level"]
-                == "Low"
-            ).sum()
-        )
-
-        medium_count = int(
-            (
-                df["risk_level"]
-                == "Medium"
-            ).sum()
-        )
-
-        high_count = int(
-            (
-                df["risk_level"]
-                == "High"
-            ).sum()
-        )
-
-
-        # -------------------------------------------------
-        # DISTRICT DATA
-        # -------------------------------------------------
-
-        districts = []
-
-
-        for index, row in df.iterrows():
-
-            districts.append({
-
-                "district":
-                    str(
-                        row["district"]
-                    ),
-
-                "latitude":
-                    float(
-                        row["latitude"]
-                    ),
-
-                "longitude":
-                    float(
-                        row["longitude"]
-                    ),
-
-                "total_2020":
-                    int(
-                        row["total__2020"]
-                    ),
-
-                "total_2021":
-                    int(
-                        row["total__2021"]
-                    ),
-
-                "fatal_2020":
-                    int(
-                        row["2020_fatal"]
-                    ),
-
-                "fatal_2021":
-                    int(
-                        row["2021_fatal"]
-                    ),
-
-                "accident_change":
-                    float(
-                        row["accident_change"]
-                    ),
-
-                "risk_level":
-                    str(
-                        row["risk_level"]
-                    )
-
-            })
-
-
-        # -------------------------------------------------
-        # RETURN DASHBOARD DATA
-        # -------------------------------------------------
-
-        return jsonify({
-
-            "status":
-                "success",
-
-            "summary": {
-
-                "total_2020":
-                    total_2020,
-
-                "total_2021":
-                    total_2021,
-
-                "district_count":
-                    district_count,
-
-                "high_risk_count":
-                    high_count
-
-            },
-
-            "risk_distribution": {
-
-                "Low":
-                    low_count,
-
-                "Medium":
-                    medium_count,
-
-                "High":
-                    high_count
-
-            },
-
-            "districts":
-                districts
-
-        })
-
-
-    except Exception as e:
-
-        print(
-            "Dashboard error:",
-            str(e)
-        )
-
-
-        return jsonify({
-
-            "status":
-                "error",
-
-            "message":
-                str(e)
-
-        }), 500
-
-
-# =========================================================
-# RISK MAP
-# =========================================================
-
-@app.route("/risk-map")
-def risk_map():
-
-    return render_template(
-        "tamil_nadu_accident_risk_map.html"
-    )
-
-
-# =========================================================
-# LANDING PAGE
-# =========================================================
-
+@app.route("/")
 @app.route("/landing")
 def landing():
+    return render_template("landing.html")
 
-    return render_template(
-        "landing.html"
-    )
-
-
-# =========================================================
-# DASHBOARD PAGE
-# =========================================================
 
 @app.route("/dashboard")
 def dashboard():
+    return render_template("dashboard.html")
 
-    return render_template(
-        "dashboard.html"
-    )
-
-
-# =========================================================
-# PREDICTION PAGE
-# =========================================================
 
 @app.route("/prediction")
-def prediction():
+def prediction_page():
+    return render_template("prediction.html")
 
-    return render_template(
-        "prediction.html"
-    )
-
-
-# =========================================================
-# MAP PAGE
-# =========================================================
 
 @app.route("/map")
 def map_page():
-
-    return render_template(
-        "map.html"
-    )
+    return render_template("map.html")
 
 
-# =========================================================
-# DATASET PAGE
-# =========================================================
+@app.route("/risk-map")
+def risk_map():
+    return render_template("tamil_nadu_accident_risk_map.html")
 
-@app.route("/dataset")
-def dataset():
-
-    return render_template(
-        "dataset.html"
-    )
-
-
-# =========================================================
-# CONTACT PAGE
-# =========================================================
-
-@app.route("/contact")
-def contact():
-
-    return render_template(
-        "contact.html"
-    )
-
-
-# =========================================================
-# LOGOUT
-# =========================================================
 
 @app.route("/logout")
 def logout():
+    return render_template("index.html")
 
-    return render_template(
-        "index.html"
+
+@app.route("/all-areas")
+def all_areas_page():
+    return render_template("all_areas.html")
+
+
+# ------------------------------------------------------------
+# Basic APIs
+# ------------------------------------------------------------
+
+@app.route("/api/test")
+def test_backend():
+    return jsonify(
+        status="success",
+        message="Accident Hotspot Backend is connected!"
     )
 
 
-# =========================================================
-# RUN FLASK
-# =========================================================
+@app.route("/api/weather")
+def api_weather():
+    lat = request.args.get("latitude", type=float)
+    lon = request.args.get("longitude", type=float)
 
-if __name__ == "__main__":
+    if lat is None or lon is None:
+        return jsonify(
+            status="error",
+            message="Latitude and longitude are required."
+        ), 400
 
-    print(
-        "\n======================================"
+    if not in_tamil_nadu(lat, lon):
+        return jsonify(
+            status="error",
+            message="Location is outside Tamil Nadu."
+        ), 400
+
+    weather = get_weather(lat, lon)
+
+    if weather is None:
+        return jsonify(
+            status="error",
+            message="Weather service unavailable."
+        ), 502
+
+    return jsonify(
+        status="success",
+        location={"latitude": lat, "longitude": lon},
+        weather=weather
     )
 
-    print(
-        " ACCIDENT HOTSPOT PREDICTION SYSTEM"
+
+@app.route("/api/traffic")
+def api_traffic():
+    lat = request.args.get("latitude", type=float)
+    lon = request.args.get("longitude", type=float)
+
+    if lat is None or lon is None:
+        return jsonify(
+            status="error",
+            message="Latitude and longitude are required."
+        ), 400
+
+    if not in_tamil_nadu(lat, lon):
+        return jsonify(
+            status="error",
+            message="Location is outside Tamil Nadu."
+        ), 400
+
+    if not TOMTOM_API_KEY:
+        return jsonify(
+            status="error",
+            message="TomTom API key is not configured."
+        ), 503
+
+    try:
+        response = requests.get(
+            "https://api.tomtom.com/traffic/services/4/"
+            "flowSegmentData/absolute/10/json",
+            params={
+                "point": f"{lat},{lon}",
+                "key": TOMTOM_API_KEY
+            },
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            print("TomTom traffic error:", response.status_code, response.text[:500])
+            return jsonify(
+                status="error",
+                message="TomTom traffic request failed.",
+                code=response.status_code
+            ), response.status_code
+
+        return jsonify(
+            status="success",
+            location={"latitude": lat, "longitude": lon},
+            traffic=response.json()
+        )
+
+    except requests.RequestException as error:
+        print("TomTom traffic request exception:", error)
+        return jsonify(
+            status="error",
+            message="Traffic service temporarily unavailable."
+        ), 502
+
+
+# ------------------------------------------------------------
+# TomTom live traffic incidents
+# ------------------------------------------------------------
+
+@app.route("/api/incidents")
+def api_incidents():
+    """Fetch current traffic incidents for the visible map area."""
+
+    if not TOMTOM_API_KEY:
+        return jsonify(
+            status="error",
+            message="TomTom API key is not configured."
+        ), 503
+
+    try:
+        west = request.args.get("west", type=float)
+        south = request.args.get("south", type=float)
+        east = request.args.get("east", type=float)
+        north = request.args.get("north", type=float)
+
+        if None in (west, south, east, north):
+            return jsonify(
+                status="error",
+                message="Map bounds are required."
+            ), 400
+
+        if not (
+            76 <= west < east <= 81
+            and 8 <= south < north <= 14
+        ):
+            return jsonify(
+                status="error",
+                message="Bounds must be within Tamil Nadu."
+            ), 400
+
+        # TomTom allows max 10,000 km2 per request -> use the centre of the view
+        west, south, east, north, clipped = clip_bbox(west, south, east, north)
+
+        url = (
+            "https://api.tomtom.com/traffic/services/5/"
+            "incidentDetails"
+        )
+
+        params = {
+            "key": TOMTOM_API_KEY,
+            "bbox": f"{west:.5f},{south:.5f},{east:.5f},{north:.5f}",
+            "fields": (
+                "{incidents{type,geometry{type,coordinates},"
+                "properties{id,iconCategory,magnitudeOfDelay,"
+                "events{description},from,to,startTime,lastReportTime}}}"
+            ),
+            "language": "en-GB",
+            "timeValidityFilter": "present"
+        }
+
+        response = requests.get(url, params=params, timeout=15)
+
+        if response.status_code != 200:
+            # The detailed error is logged locally; the key is not printed.
+            print("TomTom incidents HTTP status:", response.status_code)
+            print("TomTom incidents error:", response.text[:1000])
+
+            return jsonify(
+                status="error",
+                message="TomTom incident request failed.",
+                code=response.status_code,
+                details=response.text[:1000]
+            ), response.status_code
+
+        result = response.json()
+        incidents = result.get("incidents", [])
+
+        return jsonify(
+            status="success",
+            source="TomTom Traffic Incidents",
+            count=len(incidents),
+            clipped_to_centre=clipped,
+            incidents=incidents
+        )
+
+    except requests.RequestException as error:
+        print("TomTom incident request exception:", error)
+        return jsonify(
+            status="error",
+            message="Live incident service is temporarily unavailable."
+        ), 502
+
+    except (ValueError, TypeError) as error:
+        print("TomTom incident response error:", error)
+        return jsonify(
+            status="error",
+            message="Unable to process the live incident response."
+        ), 502
+
+
+# ------------------------------------------------------------
+# Accident risk prediction API
+# ------------------------------------------------------------
+
+@app.route("/api/predict", methods=["POST"])
+def api_predict():
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify(
+            status="error",
+            message="No JSON data received."
+        ), 400
+
+    try:
+        lat = float(data.get("latitude"))
+        lon = float(data.get("longitude"))
+    except (TypeError, ValueError):
+        return jsonify(
+            status="error",
+            message="Latitude and longitude are required."
+        ), 400
+
+    if not in_tamil_nadu(lat, lon):
+        return jsonify(
+            status="error",
+            message="Location is outside Tamil Nadu."
+        ), 400
+
+    # 1) the district named by the map (OpenStreetMap) wins
+    # 2) otherwise the nearest of ALL 38 district centres
+    hint = resolve_district(data.get("district_hint"))
+    row = None
+    estimated_district = None
+
+    if hint in _ROW:
+        row = districts.iloc[_ROW[hint]]
+    elif hint in NO_DATA:
+        estimated_district = hint
+    else:
+        nearest_all = int(
+            np.argmin(haversine_km(lat, lon, ALL_LAT, ALL_LON))
+        )
+        if str(ALL_NAMES[nearest_all]) in NO_DATA:
+            estimated_district = str(ALL_NAMES[nearest_all])
+        else:
+            row = districts.iloc[int(nearest_district_idx(lat, lon)[0])]
+
+    weather = get_weather(lat, lon)
+
+    weather_json = {
+        "temperature": weather["temperature"],
+        "precipitation": weather["precipitation"],
+        "wind_speed": weather["wind_speed"]
+    } if weather else None
+
+    # Chennai / Mayiladuthurai: no accident figures -> clearly labelled estimate
+    if row is None:
+        values, near = idw_risk(lat, lon)
+        base_idx = CLASSES.index(level_from_value(float(values[0])))
+        final_idx, reasons = weather_adjust(base_idx, weather)
+        level = str(CLASSES[final_idx])
+        helper_row = districts.iloc[int(near[0])]
+
+        return jsonify(
+            status="success",
+            location=data.get("location", "Selected Tamil Nadu Location"),
+            district=estimated_district,
+            nearest_district=str(helper_row["district"]),
+            risk_basis=(
+                "Estimated from nearby district data; "
+                "local accident figures unavailable"
+            ),
+            estimated=True,
+            area_specific_accident_data_available=False,
+            latitude=lat,
+            longitude=lon,
+            risk_level=level,
+            base_risk_level=str(CLASSES[base_idx]),
+            confidence=None,
+            weather_available=weather is not None,
+            weather_factors=reasons,
+            recommendations=recommendations(level, reasons),
+            weather=weather_json,
+            nearest_location={
+                "latitude": float(helper_row["latitude"]),
+                "longitude": float(helper_row["longitude"])
+            },
+            accident_data={
+                "total_2020": None, "total_2021": None,
+                "fatal_2020": None, "fatal_2021": None,
+                "nonfatal_2020": None, "nonfatal_2021": None,
+                "accident_change": None, "accident_change_percent": None
+            }
+        )
+
+    final_idx, reasons = weather_adjust(int(row["base_idx"]), weather)
+    level = str(CLASSES[final_idx])
+
+    return jsonify(
+        status="success",
+        location=data.get("location", "Selected Tamil Nadu Location"),
+        district=str(row["district"]),
+        nearest_district=str(row["district"]),
+        risk_basis="District-level historical accident data (2020-2021)",
+        estimated=False,
+        area_specific_accident_data_available=False,
+        latitude=lat,
+        longitude=lon,
+        risk_level=level,
+        base_risk_level=str(CLASSES[int(row["base_idx"])]),
+        confidence=round(float(row["base_conf"]), 2),
+        weather_available=weather is not None,
+        weather_factors=reasons,
+        recommendations=recommendations(level, reasons),
+        weather=weather_json,
+        nearest_location={
+            "latitude": float(row["latitude"]),
+            "longitude": float(row["longitude"])
+        },
+        accident_data={
+            "total_2020": safe_float(row["total__2020"]),
+            "total_2021": safe_float(row["total__2021"]),
+            "fatal_2020": safe_float(row["2020_fatal"]),
+            "fatal_2021": safe_float(row["2021_fatal"]),
+            "nonfatal_2020": safe_float(row["2020_nonfatal"]),
+            "nonfatal_2021": safe_float(row["2021_nonfatal"]),
+            "accident_change": safe_float(row["accident_change"]),
+            "accident_change_percent": safe_float(
+                row["accident_change_percent"]
+            )
+        }
     )
 
-    print(
-        "======================================"
+
+# ------------------------------------------------------------
+# Route risk API
+# ------------------------------------------------------------
+
+@app.route("/api/route-risk", methods=["POST"])
+def api_route_risk():
+    """Analyse the risk along a route using district-level estimates."""
+
+    data = request.get_json(silent=True) or {}
+    coordinates = data.get("coordinates")
+
+    if not isinstance(coordinates, list) or len(coordinates) < 2:
+        return jsonify(
+            status="error",
+            message="Send coordinates: [[lat, lon], ...]"
+        ), 400
+
+    if len(coordinates) > 50000:
+        return jsonify(
+            status="error",
+            message="Route too long."
+        ), 400
+
+    try:
+        points = np.asarray(coordinates, dtype=float)
+
+        if points.ndim != 2 or points.shape[1] != 2:
+            raise ValueError("Invalid coordinate shape")
+
+        if not np.isfinite(points).all():
+            raise ValueError("Coordinates must be finite")
+
+    except (ValueError, TypeError):
+        return jsonify(
+            status="error",
+            message="Invalid coordinates."
+        ), 400
+
+    # Only reject nonsense. A real road may cross the state border for a while.
+    inside = (
+        (points[:, 0] >= 7) & (points[:, 0] <= 15)
+        & (points[:, 1] >= 75) & (points[:, 1] <= 82)
+    )
+    if not inside.all():
+        return jsonify(
+            status="error",
+            message="Route coordinates must be in South India."
+        ), 400
+
+    segment_km = haversine_km(
+        points[:-1, 0], points[:-1, 1],
+        points[1:, 0], points[1:, 1]
     )
 
-    print(
-        "Old Model:",
-        OLD_MODEL_PATH
+    mid_lat = (points[:-1, 0] + points[1:, 0]) / 2
+    mid_lon = (points[:-1, 1] + points[1:, 1]) / 2
+
+    values, nearest = idw_risk(mid_lat, mid_lon)
+    values = values.copy()
+
+    count = len(segment_km)
+
+    # weather at start / middle / end; each segment uses the nearest third
+    sample_positions = [0, count // 2, count - 1]
+    weather_samples = [
+        get_weather(float(mid_lat[i]), float(mid_lon[i]))
+        for i in sample_positions
+    ]
+    third = np.minimum(2, (np.arange(count) * 3) // max(count, 1))
+
+    reasons = []
+
+    for part in range(3):
+        bump, sample_reasons = weather_severity(weather_samples[part])
+        mask = third == part
+        values[mask] = np.minimum(3.0, values[mask] + bump)
+
+        for reason in sample_reasons:
+            if reason not in reasons:
+                reasons.append(reason)
+
+    classes = np.where(
+        values < 1.5, 0,
+        np.where(values < 2.5, 1, 2)
     )
 
-    print(
-        "Weather Model:",
-        WEATHER_MODEL_PATH
+    low_km = float(segment_km[classes == 0].sum())
+    medium_km = float(segment_km[classes == 1].sum())
+    high_km = float(segment_km[classes == 2].sum())
+    total_km = low_km + medium_km + high_km
+
+    score = (
+        float((values * segment_km).sum() / total_km)
+        if total_km > 0 else 1.0
     )
 
-    print(
-        "Dataset:",
-        DATA_PATH
+    overall = (
+        "High" if score >= 2.5
+        else "Medium" if score >= 1.7
+        else "Low"
     )
 
-    print(
-        "Old Features:",
-        len(FEATURES)
+    district_names = districts["district"].to_numpy()[nearest]
+    crossed = list(dict.fromkeys(district_names.tolist()))
+    risky = list(dict.fromkeys(district_names[classes == 2].tolist()))
+
+    tips = recommendations(overall, reasons)
+    if risky:
+        tips.insert(0, "Extra care needed in: " + ", ".join(risky))
+
+    return jsonify(
+        status="success",
+        analysis={
+            "lowKm": low_km,
+            "mediumKm": medium_km,
+            "highKm": high_km,
+            "totalKm": total_km,
+            "riskScore": score,
+            "overall": overall,
+            "districts": crossed,
+            "weather_factors": reasons,
+            "tips": tips,
+            "weather_available": any(
+                sample is not None for sample in weather_samples
+            )
+        }
     )
 
-    print(
-        "Weather Features:",
-        len(WEATHER_FEATURES)
+
+# ------------------------------------------------------------
+# Dashboard API
+# ------------------------------------------------------------
+
+@app.route("/api/dashboard-data")
+def api_dashboard():
+    df = districts.copy()
+    df["risk_level"] = [str(CLASSES[int(i)]) for i in df["base_idx"]]
+    counts = df["risk_level"].value_counts()
+
+    return jsonify(
+        status="success",
+        summary={
+            "total_2020": int(df["total__2020"].sum()),
+            "total_2021": int(df["total__2021"].sum()),
+            "district_count": len(df),
+            "high_risk_count": int(counts.get("High", 0))
+        },
+        risk_distribution={
+            str(level): int(counts.get(str(level), 0))
+            for level in CLASSES
+        },
+        model_metrics=bundle.get("metrics", {}),
+        districts=[
+            {
+                "district": str(row["district"]),
+                "latitude": float(row["latitude"]),
+                "longitude": float(row["longitude"]),
+                "total_2020": int(row["total__2020"]),
+                "total_2021": int(row["total__2021"]),
+                "fatal_2020": int(row["2020_fatal"]),
+                "fatal_2021": int(row["2021_fatal"]),
+                "accident_change": safe_float(row["accident_change"]),
+                "risk_level": str(row["risk_level"]),
+                "observed_risk": str(
+                    CLASSES[int(row["observed_idx"])]
+                )
+            }
+            for _, row in df.iterrows()
+        ]
     )
 
-    print(
-        "TomTom API:",
-        "Configured"
-        if TOMTOM_API_KEY
-        else "Not configured"
+
+# ------------------------------------------------------------
+# District and area datasets
+# ------------------------------------------------------------
+
+if os.path.exists(EXTRA_PATH):
+    extra_districts = pd.read_csv(EXTRA_PATH)
+else:
+    extra_districts = pd.DataFrame(
+        columns=["district", "latitude", "longitude"]
     )
 
-    print(
-        "======================================\n"
+required_extra = {"district", "latitude", "longitude"}
+if not extra_districts.empty and not required_extra.issubset(
+    extra_districts.columns
+):
+    raise SystemExit(
+        "extra_districts.csv must contain district, latitude and longitude."
     )
+
+ALL_NAMES = np.concatenate([
+    districts["district"].astype(str).to_numpy(),
+    extra_districts["district"].astype(str).to_numpy()
+])
+
+ALL_LAT = np.concatenate([
+    D_LAT,
+    extra_districts["latitude"].to_numpy(dtype=float)
+])
+
+ALL_LON = np.concatenate([
+    D_LON,
+    extra_districts["longitude"].to_numpy(dtype=float)
+])
+
+NO_DATA = set(extra_districts["district"].astype(str).tolist())
+
+
+# ------------------------------------------------------------
+# District-name matching (OpenStreetMap / common spellings -> dataset names)
+# ------------------------------------------------------------
+
+_ALIASES = {
+    "kanchipuram": "Kancheepuram", "kancheepuram": "Kancheepuram",
+    "kanyakumari": "Kanniyakumari", "kanniyakumari": "Kanniyakumari",
+    "ranipet": "Ranipettai", "ranipettai": "Ranipettai",
+    "nilgiris": "The Nilgiris", "thenilgiris": "The Nilgiris",
+    "nilgiri": "The Nilgiris",
+    "thiruvallur": "Tiruvallur", "tiruvallur": "Tiruvallur",
+    "tiruvarur": "Thiruvarur", "thiruvarur": "Thiruvarur",
+    "tirupathur": "Thirupathur", "tirupattur": "Thirupathur",
+    "thirupathur": "Thirupathur",
+    "tiruppur": "Tirupur", "tirupur": "Tirupur",
+    "tiruvannamalai": "Thiruvannamalai", "thiruvannamalai": "Thiruvannamalai",
+    "viluppuram": "Villupuram", "villupuram": "Villupuram",
+    "tuticorin": "Thoothukudi", "thoothukkudi": "Thoothukudi",
+    "thoothukudi": "Thoothukudi",
+    "trichy": "Tiruchirappalli", "tiruchirapalli": "Tiruchirappalli",
+    "tiruchchirappalli": "Tiruchirappalli", "tiruchirappalli": "Tiruchirappalli",
+    "sivaganga": "Sivagangai", "sivagangai": "Sivagangai",
+    "pudukottai": "Pudukkottai", "pudukkottai": "Pudukkottai",
+    "tanjore": "Thanjavur", "thanjavur": "Thanjavur",
+    "thirunelveli": "Tirunelveli", "tirunelveli": "Tirunelveli",
+    "mayiladudurai": "Mayiladuthurai", "mayiladuthurai": "Mayiladuthurai",
+    "madras": "Chennai", "chennai": "Chennai",
+}
+
+
+def _name_key(name):
+    key = re.sub(r"[^a-z]", "", str(name or "").lower())
+    return key[:-8] if key.endswith("district") else key
+
+
+_CANON = {
+    _name_key(n): n
+    for n in list(districts["district"]) + list(extra_districts["district"])
+}
+_CANON.update({_name_key(a): c for a, c in _ALIASES.items()})
+_ROW = {str(r["district"]): i for i, r in districts.iterrows()}
+
+
+def resolve_district(hint):
+    """Map a district name from the map to the dataset spelling (or None)."""
+    return _CANON.get(_name_key(hint)) if hint else None
+
+
+@app.route("/api/districts-all")
+def api_districts_all():
+    """Return district locations and clearly label estimates."""
+
+    output = []
+
+    for _, row in districts.iterrows():
+        output.append({
+            "district": str(row["district"]),
+            "latitude": float(row["latitude"]),
+            "longitude": float(row["longitude"]),
+            "risk": str(CLASSES[int(row["base_idx"])]),
+            "risk_basis": "Historical district accident data (2020-2021)",
+            "estimated": False,
+            "total_2021": int(row["total__2021"]),
+            "fatal_2021": int(row["2021_fatal"])
+        })
+
+    if not extra_districts.empty:
+        extra_lat = extra_districts["latitude"].to_numpy(dtype=float)
+        extra_lon = extra_districts["longitude"].to_numpy(dtype=float)
+        estimates, nearest = idw_risk(extra_lat, extra_lon)
+
+        for i, (_, row) in enumerate(extra_districts.iterrows()):
+            output.append({
+                "district": str(row["district"]),
+                "latitude": float(row["latitude"]),
+                "longitude": float(row["longitude"]),
+                "risk": level_from_value(float(estimates[i])),
+                "risk_basis": (
+                    "Estimated from nearby district data; "
+                    "local accident figures unavailable"
+                ),
+                "estimated": True,
+                "nearest_data_district": str(
+                    districts.iloc[int(nearest[i])]["district"]
+                ),
+                "total_2021": None,
+                "fatal_2021": None
+            })
+
+    return jsonify(
+        status="success",
+        count=len(output),
+        districts=output
+    )
+
+
+@app.route("/api/areas")
+def api_areas():
+    """Return configured area locations with estimated risk."""
+
+    if not os.path.exists(AREAS_PATH):
+        return jsonify(status="success", count=0, areas=[])
+
+    areas_df = pd.read_csv(AREAS_PATH)
+
+    required_area_columns = {"area", "latitude", "longitude"}
+    if not required_area_columns.issubset(areas_df.columns):
+        return jsonify(
+            status="error",
+            message="Area dataset is missing required columns."
+        ), 500
+
+    areas_df = areas_df[
+        areas_df["latitude"].between(8, 13.6)
+        & areas_df["longitude"].between(76, 80.4)
+    ].reset_index(drop=True)
+
+    if areas_df.empty:
+        return jsonify(status="success", count=0, areas=[])
+
+    latitudes = areas_df["latitude"].to_numpy(dtype=float)
+    longitudes = areas_df["longitude"].to_numpy(dtype=float)
+
+    values, _ = idw_risk(latitudes, longitudes)
+
+    distances = haversine_km(
+        latitudes[:, None], longitudes[:, None],
+        ALL_LAT[None, :], ALL_LON[None, :]
+    )
+    nearest_all = distances.argmin(axis=1)
+
+    output = []
+
+    for i in range(len(areas_df)):
+        if "district" in areas_df and pd.notna(areas_df["district"].iloc[i]):
+            district_name = str(areas_df["district"].iloc[i])
+        else:
+            district_name = str(ALL_NAMES[nearest_all[i]])
+
+        # same rule as /api/districts-all: Chennai-side areas are estimates
+        near_no_data = str(ALL_NAMES[nearest_all[i]]) in NO_DATA
+
+        output.append({
+            "area": str(areas_df["area"].iloc[i]),
+            "district": district_name,
+            "type": (
+                str(areas_df["type"].iloc[i])
+                if "type" in areas_df else "area"
+            ),
+            "latitude": float(latitudes[i]),
+            "longitude": float(longitudes[i]),
+            "risk": level_from_value(float(values[i])),
+            "score": round(float(values[i]), 2),
+            "estimated": True,
+            "risk_basis": (
+                "Estimated from nearby districts; this district has no "
+                "local accident figures"
+                if near_no_data
+                else "Estimated from nearby district-level data"
+            ),
+            "area_specific_accident_data_available": False
+        })
+
+    return jsonify(
+        status="success",
+        count=len(output),
+        areas=output
+    )
+
+
+# ------------------------------------------------------------
+# Start Flask
+# ------------------------------------------------------------
 
 if __name__ == "__main__":
     app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
+        host="127.0.0.1",
+        port=int(os.getenv("PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG") == "1"
     )
